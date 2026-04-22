@@ -11,6 +11,7 @@ interface Barang {
   kategori: string;
   stok: number;
   satuan: string;
+  supplier: string;
   lokasi: string;
 }
 
@@ -48,11 +49,11 @@ export default function DataMaster() {
   const [newCategory, setNewCategory] = useState<string>("");
 
   const barangData: Barang[] = [
-    { id: 1, kode: "RES-001", nama: "Resistor 10K Ohm", kategori: "Resistor", stok: 1200, satuan: "Pcs", lokasi: "Rak A1" },
-    { id: 2, kode: "CAP-001", nama: "Kapasitor 100uF", kategori: "Kapasitor", stok: 450, satuan: "Pcs", lokasi: "Rak A2" },
-    { id: 3, kode: "LED-001", nama: "LED Merah 5mm", kategori: "LED", stok: 2200, satuan: "Pcs", lokasi: "Rak B1" },
-    { id: 4, kode: "IC-001", nama: "IC 555 Timer", kategori: "IC", stok: 320, satuan: "Pcs", lokasi: "Rak C1" },
-    { id: 5, kode: "TRN-001", nama: "Transistor NPN", kategori: "Transistor", stok: 180, satuan: "Pcs", lokasi: "Rak C2" },
+    { id: 1, kode: "RES-001", nama: "Resistor 10K Ohm", kategori: "Resistor", stok: 1200, satuan: "Unit", supplier: "PT Elektronika Jaya", lokasi: "Rak A1" },
+    { id: 2, kode: "CAP-001", nama: "Kapasitor 100uF", kategori: "Kapasitor", stok: 450, satuan: "Unit", supplier: "CV Komponen Nusantara", lokasi: "Rak A2" },
+    { id: 3, kode: "LED-001", nama: "LED Merah 5mm", kategori: "LED", stok: 2200, satuan: "Unit", supplier: "PT Elektronika Jaya", lokasi: "Rak B1" },
+    { id: 4, kode: "IC-001", nama: "IC 555 Timer", kategori: "IC", stok: 320, satuan: "Unit", supplier: "UD Maju Sejahtera", lokasi: "Rak C1" },
+    { id: 5, kode: "TRN-001", nama: "Transistor NPN", kategori: "Transistor", stok: 180, satuan: "Unit", supplier: "CV Komponen Nusantara", lokasi: "Rak C2" },
   ];
 
   const supplierData: Supplier[] = [
@@ -159,6 +160,7 @@ export default function DataMaster() {
                     <th className="px-6 py-4 text-left text-[#0C447C] font-semibold">Nama Barang</th>
                     <th className="px-6 py-4 text-left text-[#0C447C] font-semibold">Kategori</th>
                     <th className="px-6 py-4 text-left text-[#0C447C] font-semibold">Stok</th>
+                    <th className="px-6 py-4 text-left text-[#0C447C] font-semibold">Supplier</th>
                     <th className="px-6 py-4 text-left text-[#0C447C] font-semibold">Lokasi</th>
                     <th className="px-6 py-4 text-left text-[#0C447C] font-semibold">Aksi</th>
                   </tr>
@@ -174,6 +176,7 @@ export default function DataMaster() {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-gray-600">{item.stok} {item.satuan}</td>
+                      <td className="px-6 py-4 text-gray-600">{item.supplier}</td>
                       <td className="px-6 py-4 text-gray-600">{item.lokasi}</td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
@@ -310,11 +313,19 @@ export default function DataMaster() {
                     <div>
                       <label className="block mb-2 text-[#0C447C] font-medium">Satuan</label>
                       <select className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]">
-                        <option>Pcs</option>
                         <option>Box</option>
                         <option>Unit</option>
                       </select>
                     </div>
+                  </div>
+                  <div>
+                    <label className="block mb-2 text-[#0C447C] font-medium">Supplier</label>
+                    <select className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]">
+                      <option value="">Pilih Supplier</option>
+                      {supplierData.map((supplier) => (
+                        <option key={supplier.id} value={supplier.nama}>{supplier.nama}</option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="block mb-2 text-[#0C447C] font-medium">Lokasi</label>

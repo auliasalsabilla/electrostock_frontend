@@ -103,9 +103,9 @@ export default function Laporan() {
             <div>
               <h2 className="text-3xl font-bold mb-2 flex items-center gap-3">
                 <FileText className="w-8 h-8" />
-                Laporan & Analitik
+                Laporan Inventaris
               </h2>
-              <p className="text-blue-100">Generate dan export laporan inventaris dalam berbagai format</p>
+              <p className="text-blue-100">Generate dan export laporan inventaris dalam format yang mudah dibaca</p>
             </div>
             <div className="flex gap-3">
               <button onClick={() => handleExport("pdf")} className="flex items-center gap-2 px-6 py-3 bg-red-500 text-white rounded-xl hover:bg-red-600 transition font-semibold shadow-lg">
@@ -235,7 +235,7 @@ export default function Laporan() {
                       <td className="px-6 py-4 text-gray-600">{item.tanggal}</td>
                       <td className="px-6 py-4 text-[#0C447C] font-medium">{item.barang}</td>
                       <td className="px-6 py-4"><span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">{item.kategori}</span></td>
-                      <td className="px-6 py-4"><span className="text-green-600 font-semibold">+{item.qty} Pcs</span></td>
+                      <td className="px-6 py-4"><span className="text-green-600 font-semibold">+{item.qty} Unit</span></td>
                       <td className="px-6 py-4 text-gray-600">{item.hargaSatuan}</td>
                       <td className="px-6 py-4 text-gray-600">{item.supplier}</td>
                       <td className="px-6 py-4 text-[#0C447C] font-bold">{item.total}</td>
@@ -265,7 +265,7 @@ export default function Laporan() {
                       <td className="px-6 py-4 text-gray-600">{item.tanggal}</td>
                       <td className="px-6 py-4 text-[#0C447C] font-medium">{item.barang}</td>
                       <td className="px-6 py-4"><span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">{item.kategori}</span></td>
-                      <td className="px-6 py-4"><span className="text-orange-600 font-semibold">-{item.qty} Pcs</span></td>
+                      <td className="px-6 py-4"><span className="text-orange-600 font-semibold">-{item.qty} Unit</span></td>
                       <td className="px-6 py-4 text-gray-600">{item.tujuan}</td>
                       <td className="px-6 py-4 text-gray-600">{item.pic}</td>
                     </tr>

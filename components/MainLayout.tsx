@@ -14,7 +14,7 @@ import {
   UserCog,
   Database,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 interface MenuItem {
   icon: React.ElementType;
@@ -30,15 +30,14 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
-  const [userRole, setUserRole] = useState<string>("admin");
-  const [userEmail, setUserEmail] = useState<string>("");
-
-  useEffect(() => {
-    const role = localStorage.getItem("userRole") || "admin";
-    const email = localStorage.getItem("userEmail") || "";
-    setUserRole(role);
-    setUserEmail(email);
-  }, []);
+  const [userRole] = useState<string>(() => {
+    if (typeof window === "undefined") return "admin";
+    return localStorage.getItem("userRole") || "admin";
+  });
+  const [userEmail] = useState<string>(() => {
+    if (typeof window === "undefined") return "";
+    return localStorage.getItem("userEmail") || "";
+  });
 
   const getMenuItems = (): MenuItem[] => {
     const adminMenu: MenuItem[] = [
@@ -107,10 +106,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
       >
         <div className="p-4 border-b border-white/10 flex-shrink-0">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-white/10 backdrop-blur-sm rounded-lg">
-                <Package className="w-6 h-6 text-white" />
-              </div>
+            <div className="flex items-center gap-2 min-w-0">
               {sidebarOpen && <span className="font-semibold text-base">ElectroStock</span>}
             </div>
             <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 hover:bg-white/10 rounded-lg transition">

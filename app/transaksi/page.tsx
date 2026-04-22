@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { TrendingUp, TrendingDown, Search } from "lucide-react";
+import { TrendingUp, TrendingDown, Search, ChevronRight } from "lucide-react";
 import MainLayout from "@/components/MainLayout";
 
 interface Transaction {
@@ -47,31 +47,47 @@ export default function Transaksi() {
   return (
     <MainLayout>
       <div className="space-y-6">
-        {/* Action Buttons */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <button
             onClick={() => handleOpenModal("masuk")}
-            className="flex items-center justify-center gap-3 p-6 bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl hover:shadow-xl transition transform hover:scale-105"
+            className="group relative overflow-hidden rounded-2xl bg-[linear-gradient(135deg,#2e7d32_0%,#388e3c_52%,#66bb6a_100%)] p-6 text-left text-white shadow-[0_16px_30px_rgba(56,142,60,0.18)] transition hover:-translate-y-1 hover:shadow-[0_20px_36px_rgba(56,142,60,0.24)]"
           >
-            <TrendingUp className="w-8 h-8" />
-            <div className="text-left">
-              <p className="text-lg font-bold">Stock In</p>
-              <p className="text-sm text-green-100">Tambah Barang Masuk</p>
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.16),transparent_40%)]" />
+            <div className="absolute inset-x-0 bottom-0 h-16 bg-[linear-gradient(180deg,transparent,rgba(0,0,0,0.10))]" />
+            <div className="relative flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="rounded-2xl bg-white/12 p-3 shadow-sm ring-1 ring-white/15 backdrop-blur-sm">
+                  <TrendingUp className="w-7 h-7 text-white" />
+                </div>
+                <div className="text-left">
+                  <p className="text-lg font-bold">Stock In</p>
+                  <p className="text-sm text-green-50/85">Tambah Barang Masuk</p>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-white transition group-hover:translate-x-0.5" />
             </div>
           </button>
           <button
             onClick={() => handleOpenModal("keluar")}
-            className="flex items-center justify-center gap-3 p-6 bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-xl hover:shadow-xl transition transform hover:scale-105"
+            className="group relative overflow-hidden rounded-2xl bg-[linear-gradient(135deg,#b71c1c_0%,#c62828_52%,#ef5350_100%)] p-6 text-left text-white shadow-[0_16px_30px_rgba(198,40,40,0.18)] transition hover:-translate-y-1 hover:shadow-[0_20px_36px_rgba(198,40,40,0.24)]"
           >
-            <TrendingDown className="w-8 h-8" />
-            <div className="text-left">
-              <p className="text-lg font-bold">Stock Out</p>
-              <p className="text-sm text-orange-100">Tambah Barang Keluar</p>
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.14),transparent_40%)]" />
+            <div className="absolute inset-x-0 bottom-0 h-16 bg-[linear-gradient(180deg,transparent,rgba(0,0,0,0.10))]" />
+            <div className="relative flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="rounded-2xl bg-white/12 p-3 shadow-sm ring-1 ring-white/15 backdrop-blur-sm">
+                  <TrendingDown className="w-7 h-7 text-white" />
+                </div>
+                <div className="text-left">
+                  <p className="text-lg font-bold">Stock Out</p>
+                  <p className="text-sm text-red-50/85">Tambah Barang Keluar</p>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-white transition group-hover:translate-x-0.5" />
             </div>
           </button>
         </div>
 
-        {/* Tabs and Search */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
             <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
@@ -101,7 +117,6 @@ export default function Transaksi() {
             </div>
           </div>
 
-          {/* Transaction Table */}
           <div className="overflow-x-auto mt-6">
             <table className="w-full">
               <thead>
@@ -124,15 +139,15 @@ export default function Transaksi() {
                       <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold ${
                         transaction.type === "masuk"
                           ? "bg-green-100 text-green-700"
-                          : "bg-orange-100 text-orange-700"
+                          : "bg-red-100 text-red-700"
                       }`}>
                         {transaction.type === "masuk" ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
                         {transaction.type === "masuk" ? "Masuk" : "Keluar"}
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`font-semibold ${transaction.type === "masuk" ? "text-green-600" : "text-orange-600"}`}>
-                        {transaction.type === "masuk" ? "+" : "-"}{transaction.qty} Pcs
+                      <span className={`font-semibold ${transaction.type === "masuk" ? "text-green-600" : "text-red-600"}`}>
+                        {transaction.type === "masuk" ? "+" : "-"}{transaction.qty} Unit
                       </span>
                     </td>
                     <td className="px-6 py-4 text-gray-600">{transaction.tanggal}</td>
@@ -145,7 +160,6 @@ export default function Transaksi() {
           </div>
         </div>
 
-        {/* Add Transaction Modal */}
         {showModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-8">
@@ -153,7 +167,7 @@ export default function Transaksi() {
                 <div className={`p-3 rounded-xl ${
                   modalType === "masuk"
                     ? "bg-gradient-to-br from-green-500 to-green-600"
-                    : "bg-gradient-to-br from-orange-500 to-orange-600"
+                    : "bg-gradient-to-br from-red-500 to-red-600"
                 }`}>
                   {modalType === "masuk" ? <TrendingUp className="w-6 h-6 text-white" /> : <TrendingDown className="w-6 h-6 text-white" />}
                 </div>
@@ -213,7 +227,7 @@ export default function Transaksi() {
                   className={`flex-1 px-6 py-3 text-white rounded-xl hover:shadow-xl transition font-medium ${
                     modalType === "masuk"
                       ? "bg-gradient-to-r from-green-500 to-green-600"
-                      : "bg-gradient-to-r from-orange-500 to-orange-600"
+                      : "bg-gradient-to-r from-red-500 to-red-600"
                   }`}
                 >
                   Simpan Transaksi

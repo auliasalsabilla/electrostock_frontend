@@ -1,16 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Database, Bell, Shield, User, Download, Upload } from "lucide-react";
 import MainLayout from "@/components/MainLayout";
 
 export default function Settings() {
-  const [userRole, setUserRole] = useState<string>("admin");
-
-  useEffect(() => {
-    const role = localStorage.getItem("userRole") || "admin";
-    setUserRole(role);
-  }, []);
+  const [userRole] = useState<string>(() => {
+    if (typeof window === "undefined") return "admin";
+    return localStorage.getItem("userRole") || "admin";
+  });
 
   const handleBackup = () => {
     alert("Backup data dimulai... File akan diunduh segera.");

@@ -132,14 +132,7 @@ export default function KelolaUser() {
                 {filteredUsers.map((user, index) => (
                   <tr key={user.id} className="border-b border-gray-100 hover:bg-gray-50 transition">
                     <td className="px-6 py-4 text-gray-600">{index + 1}</td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-11 h-11 bg-gradient-to-br from-[#378ADD] to-[#0C447C] text-white rounded-xl flex items-center justify-center font-semibold shadow-md">
-                          {user.nama.charAt(0).toUpperCase()}
-                        </div>
-                        <span className="text-[#0C447C] font-medium">{user.nama}</span>
-                      </div>
-                    </td>
+                    <td className="px-6 py-4 text-[#0C447C] font-medium">{user.nama}</td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2 text-gray-600">
                         <Mail className="w-4 h-4" />
