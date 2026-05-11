@@ -72,6 +72,9 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const menuItems = getMenuItems();
 
   const handleLogout = () => {
+    const confirmed = window.confirm("Apakah Anda yakin ingin logout?");
+    if (!confirmed) return;
+
     localStorage.removeItem("userRole");
     localStorage.removeItem("userEmail");
     router.push("/");

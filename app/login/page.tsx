@@ -2,15 +2,19 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Package, Mail, Lock, Shield, Check } from "lucide-react";
+import { Package, Mail, Lock, Shield, Check, Eye, EyeOff } from "lucide-react";
+import { useAuthContext } from "@/context/AuthContext";
 
 export default function Login() {
   const router = useRouter();
-  const [email, setEmail] = useState<string>("");
-  const [password, setPassword] = useState<string>("");
-  const [role, setRole] = useState<string>("admin");
-  const [errorMessage, setErrorMessage] = useState<string>("");
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const { login } = useAuthContext();
+
+  const [email,       setEmail]       = useState<string>("");
+  const [password,    setPassword]    = useState<string>("");
+  const [role,        setRole]        = useState<string>("admin");
+  const [errorMessage,setErrorMessage]= useState<string>("");
+  const [isSubmitting,setIsSubmitting]= useState<boolean>(false);
+  const [showPassword,setShowPassword]= useState<boolean>(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,30 +22,14 @@ export default function Login() {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch("/api/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email,
-          password,
-          role,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setErrorMessage(data.message || "Login gagal. Silakan coba lagi.");
-        return;
-      }
-
-      localStorage.setItem("userRole", data.role);
-      localStorage.setItem("userEmail", data.email);
-      router.push("/dashboard");
-    } catch {
-      setErrorMessage("Terjadi gangguan saat menghubungi server login.");
+      await login(email, password);
+      // redirect sudah ditangani AuthContext
+    } catch (err: any) {
+      const msg =
+        err?.errors?.email?.[0] ||
+        err?.message ||
+        "Login gagal. Periksa email dan password.";
+      setErrorMessage(msg);
     } finally {
       setIsSubmitting(false);
     }
@@ -141,14 +129,21 @@ export default function Login() {
                 <div className="relative">
                   <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <input
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     id="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="********"
-                    className="w-full pl-12 pr-4 py-3.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD] focus:border-transparent transition"
+                    placeholder="••••••••"
+                    className="w-full pl-12 pr-12 py-3.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD] focus:border-transparent transition"
                     required
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
                 </div>
               </div>
 
