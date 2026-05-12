@@ -17,7 +17,6 @@ interface Barang {
   stock: number;
   stock_minimum: number;
   purchase_price: number;
-  selling_price: number;
   is_active: boolean;
   category: { id: number; name: string } | null;
   supplier: { id: number; name: string } | null;
@@ -67,35 +66,29 @@ export default function DataMaster() {
   const [loading, setLoading]           = useState(false);
   const [formError, setFormError]       = useState("");
 
-  // Data state
   const [barangList,   setBarangList]   = useState<Barang[]>([]);
   const [supplierList, setSupplierList] = useState<Supplier[]>([]);
   const [lokasiList,   setLokasiList]   = useState<Lokasi[]>([]);
   const [categoryList, setCategoryList] = useState<Category[]>([]);
   const [unitList,     setUnitList]     = useState<Unit[]>([]);
 
-  // Form state barang
   const [barangForm, setBarangForm] = useState({
     code: "", name: "", brand: "", description: "",
     category_id: "", supplier_id: "", unit_id: "", storage_location_id: "",
-    stock: 0, stock_minimum: 0, purchase_price: 0, selling_price: 0, is_active: true,
+    stock: 0, stock_minimum: 0, purchase_price: 0, is_active: true,
   });
 
-  // Form state supplier
   const [supplierForm, setSupplierForm] = useState({
     code: "", name: "", contact_person: "", phone: "",
     email: "", address: "", city: "", is_active: true,
   });
 
-  // Form state lokasi
   const [lokasiForm, setLokasiForm] = useState({
     code: "", name: "", description: "", is_active: true,
   });
 
-  // Form state kategori
   const [categoryForm, setCategoryForm] = useState({ name: "" });
 
-  // Fetch data
   const fetchBarang   = async () => { const r = await apiClient.get("/items");             if (r.status) setBarangList(r.data); };
   const fetchSupplier = async () => { const r = await apiClient.get("/suppliers");          if (r.status) setSupplierList(r.data); };
   const fetchLokasi   = async () => { const r = await apiClient.get("/storage-locations");  if (r.status) setLokasiList(r.data); };
@@ -106,7 +99,6 @@ export default function DataMaster() {
     fetchBarang(); fetchSupplier(); fetchLokasi(); fetchCategory(); fetchUnit();
   }, []);
 
-  // Filter
   const filteredBarang = barangList.filter(
     (i) => i.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
            i.code.toLowerCase().includes(searchTerm.toLowerCase())
@@ -120,7 +112,6 @@ export default function DataMaster() {
            l.code.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Open modal
   const handleOpenModal = (item?: any) => {
     setFormError("");
     if (item) {
@@ -135,7 +126,7 @@ export default function DataMaster() {
           unit_id: item.unit_id || "",
           storage_location_id: item.storage_location_id || "",
           stock: item.stock, stock_minimum: item.stock_minimum,
-          purchase_price: item.purchase_price, selling_price: item.selling_price,
+          purchase_price: item.purchase_price,
           is_active: item.is_active,
         });
       } else if (activeTab === "supplier") {
@@ -155,19 +146,17 @@ export default function DataMaster() {
     } else {
       setIsEdit(false);
       setEditId(null);
-      setBarangForm({ code: "", name: "", brand: "", description: "", category_id: "", supplier_id: "", unit_id: "", storage_location_id: "", stock: 0, stock_minimum: 0, purchase_price: 0, selling_price: 0, is_active: true });
+      setBarangForm({ code: "", name: "", brand: "", description: "", category_id: "", supplier_id: "", unit_id: "", storage_location_id: "", stock: 0, stock_minimum: 0, purchase_price: 0, is_active: true });
       setSupplierForm({ code: "", name: "", contact_person: "", phone: "", email: "", address: "", city: "", is_active: true });
       setLokasiForm({ code: "", name: "", description: "", is_active: true });
     }
     setShowModal(true);
   };
 
-  // Submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
     setLoading(true);
-
     try {
       let response;
       if (activeTab === "barang") {
@@ -195,17 +184,15 @@ export default function DataMaster() {
     }
   };
 
-  // Delete
   const handleDelete = async (id: number) => {
     if (!confirm("Apakah Anda yakin ingin menghapus data ini?")) return;
     try {
-      if (activeTab === "barang")    { const r = await apiClient.delete(`/items/${id}`);             if (r.status) await fetchBarang(); }
-      if (activeTab === "supplier")  { const r = await apiClient.delete(`/suppliers/${id}`);          if (r.status) await fetchSupplier(); }
-      if (activeTab === "lokasi")    { const r = await apiClient.delete(`/storage-locations/${id}`);  if (r.status) await fetchLokasi(); }
+      if (activeTab === "barang")   { const r = await apiClient.delete(`/items/${id}`);            if (r.status) await fetchBarang(); }
+      if (activeTab === "supplier") { const r = await apiClient.delete(`/suppliers/${id}`);         if (r.status) await fetchSupplier(); }
+      if (activeTab === "lokasi")   { const r = await apiClient.delete(`/storage-locations/${id}`); if (r.status) await fetchLokasi(); }
     } catch { alert("Gagal menghapus data."); }
   };
 
-  // Tambah kategori
   const handleAddCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -490,17 +477,10 @@ export default function DataMaster() {
                           className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]" min={0} />
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block mb-2 text-[#0C447C] font-medium">Harga Beli</label>
-                        <input type="number" value={barangForm.purchase_price} onChange={(e) => setBarangForm({ ...barangForm, purchase_price: Number(e.target.value) })}
-                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]" min={0} />
-                      </div>
-                      <div>
-                        <label className="block mb-2 text-[#0C447C] font-medium">Harga Jual</label>
-                        <input type="number" value={barangForm.selling_price} onChange={(e) => setBarangForm({ ...barangForm, selling_price: Number(e.target.value) })}
-                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]" min={0} />
-                      </div>
+                    <div>
+                      <label className="block mb-2 text-[#0C447C] font-medium">Harga Beli</label>
+                      <input type="number" value={barangForm.purchase_price} onChange={(e) => setBarangForm({ ...barangForm, purchase_price: Number(e.target.value) })}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]" min={0} />
                     </div>
                   </>
                 )}
