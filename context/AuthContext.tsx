@@ -10,6 +10,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  setUser: (user: User | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -19,7 +20,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const router                = useRouter();
 
-  // Cek session saat pertama load
   useEffect(() => {
     const savedUser = authService.getUser();
     if (savedUser) setUser(savedUser);
@@ -33,7 +33,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     authService.saveSession(access_token, user);
     setUser(user);
 
-    // Redirect sesuai role
     router.push('/dashboard');
   };
 
@@ -50,6 +49,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       isAuthenticated: !!user,
       login,
       logout,
+      setUser,
     }}>
       {children}
     </AuthContext.Provider>
