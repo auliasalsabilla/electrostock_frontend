@@ -1,95 +1,231 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Package, Users, MapPin, Search, Plus, Edit2, Trash2, FolderPlus } from "lucide-react";
 import MainLayout from "@/components/MainLayout";
+import { apiClient } from "@/lib/api";
 
 interface Barang {
   id: number;
-  kode: string;
-  nama: string;
-  kategori: string;
-  stok: number;
-  satuan: string;
-  supplier: string;
-  lokasi: string;
+  code: string;
+  name: string;
+  brand: string;
+  category_id: number | null;
+  supplier_id: number | null;
+  unit_id: number | null;
+  storage_location_id: number | null;
+  stock: number;
+  stock_minimum: number;
+  purchase_price: number;
+  selling_price: number;
+  is_active: boolean;
+  category: { id: number; name: string } | null;
+  supplier: { id: number; name: string } | null;
+  unit: { id: number; name: string; abbreviation: string } | null;
+  storage_location: { id: number; name: string } | null;
 }
 
 interface Supplier {
   id: number;
-  nama: string;
-  kontak: string;
+  code: string;
+  name: string;
+  contact_person: string;
+  phone: string;
   email: string;
-  alamat: string;
+  address: string;
+  city: string;
+  is_active: boolean;
 }
 
 interface Lokasi {
   id: number;
-  kode: string;
-  nama: string;
-  kapasitas: string;
-  terisi: string;
+  code: string;
+  name: string;
+  description: string;
+  is_active: boolean;
 }
 
-interface Tab {
-  id: string;
-  label: string;
-  icon: React.ElementType;
+interface Category {
+  id: number;
+  name: string;
+  slug: string;
+}
+
+interface Unit {
+  id: number;
+  name: string;
+  abbreviation: string;
 }
 
 export default function DataMaster() {
-  const [activeTab, setActiveTab] = useState<string>("barang");
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const [showModal, setShowModal] = useState<boolean>(false);
-  const [showCategoryModal, setShowCategoryModal] = useState<boolean>(false);
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  const [categories, setCategories] = useState<string[]>([
-    "Resistor", "Kapasitor", "LED", "IC", "Transistor", "Sensor",
-  ]);
-  const [newCategory, setNewCategory] = useState<string>("");
+  const [activeTab, setActiveTab]       = useState("barang");
+  const [searchTerm, setSearchTerm]     = useState("");
+  const [showModal, setShowModal]       = useState(false);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [isEdit, setIsEdit]             = useState(false);
+  const [editId, setEditId]             = useState<number | null>(null);
+  const [loading, setLoading]           = useState(false);
+  const [formError, setFormError]       = useState("");
 
-  const barangData: Barang[] = [
-    { id: 1, kode: "RES-001", nama: "Resistor 10K Ohm", kategori: "Resistor", stok: 1200, satuan: "Unit", supplier: "PT Elektronika Jaya", lokasi: "Rak A1" },
-    { id: 2, kode: "CAP-001", nama: "Kapasitor 100uF", kategori: "Kapasitor", stok: 450, satuan: "Unit", supplier: "CV Komponen Nusantara", lokasi: "Rak A2" },
-    { id: 3, kode: "LED-001", nama: "LED Merah 5mm", kategori: "LED", stok: 2200, satuan: "Unit", supplier: "PT Elektronika Jaya", lokasi: "Rak B1" },
-    { id: 4, kode: "IC-001", nama: "IC 555 Timer", kategori: "IC", stok: 320, satuan: "Unit", supplier: "UD Maju Sejahtera", lokasi: "Rak C1" },
-    { id: 5, kode: "TRN-001", nama: "Transistor NPN", kategori: "Transistor", stok: 180, satuan: "Unit", supplier: "CV Komponen Nusantara", lokasi: "Rak C2" },
-  ];
+  // Data state
+  const [barangList,   setBarangList]   = useState<Barang[]>([]);
+  const [supplierList, setSupplierList] = useState<Supplier[]>([]);
+  const [lokasiList,   setLokasiList]   = useState<Lokasi[]>([]);
+  const [categoryList, setCategoryList] = useState<Category[]>([]);
+  const [unitList,     setUnitList]     = useState<Unit[]>([]);
 
-  const supplierData: Supplier[] = [
-    { id: 1, nama: "PT Elektronika Jaya", kontak: "021-12345678", email: "info@elektronika.com", alamat: "Jakarta" },
-    { id: 2, nama: "CV Komponen Nusantara", kontak: "022-87654321", email: "sales@komponen.com", alamat: "Bandung" },
-    { id: 3, nama: "UD Maju Sejahtera", kontak: "031-11223344", email: "ud.maju@mail.com", alamat: "Surabaya" },
-  ];
+  // Form state barang
+  const [barangForm, setBarangForm] = useState({
+    code: "", name: "", brand: "", description: "",
+    category_id: "", supplier_id: "", unit_id: "", storage_location_id: "",
+    stock: 0, stock_minimum: 0, purchase_price: 0, selling_price: 0, is_active: true,
+  });
 
-  const lokasiData: Lokasi[] = [
-    { id: 1, kode: "A1", nama: "Rak A1", kapasitas: "100 Box", terisi: "75 Box" },
-    { id: 2, kode: "A2", nama: "Rak A2", kapasitas: "100 Box", terisi: "60 Box" },
-    { id: 3, kode: "B1", nama: "Rak B1", kapasitas: "150 Box", terisi: "120 Box" },
-    { id: 4, kode: "C1", nama: "Rak C1", kapasitas: "120 Box", terisi: "90 Box" },
-  ];
+  // Form state supplier
+  const [supplierForm, setSupplierForm] = useState({
+    code: "", name: "", contact_person: "", phone: "",
+    email: "", address: "", city: "", is_active: true,
+  });
 
-  const handleAddCategory = () => {
-    if (newCategory.trim()) {
-      setCategories([...categories, newCategory.trim()]);
-      setNewCategory("");
-      setShowCategoryModal(false);
+  // Form state lokasi
+  const [lokasiForm, setLokasiForm] = useState({
+    code: "", name: "", description: "", is_active: true,
+  });
+
+  // Form state kategori
+  const [categoryForm, setCategoryForm] = useState({ name: "" });
+
+  // Fetch data
+  const fetchBarang   = async () => { const r = await apiClient.get("/items");             if (r.status) setBarangList(r.data); };
+  const fetchSupplier = async () => { const r = await apiClient.get("/suppliers");          if (r.status) setSupplierList(r.data); };
+  const fetchLokasi   = async () => { const r = await apiClient.get("/storage-locations");  if (r.status) setLokasiList(r.data); };
+  const fetchCategory = async () => { const r = await apiClient.get("/categories");         if (r.status) setCategoryList(r.data); };
+  const fetchUnit     = async () => { const r = await apiClient.get("/units");              if (r.status) setUnitList(r.data); };
+
+  useEffect(() => {
+    fetchBarang(); fetchSupplier(); fetchLokasi(); fetchCategory(); fetchUnit();
+  }, []);
+
+  // Filter
+  const filteredBarang = barangList.filter(
+    (i) => i.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           i.code.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  const filteredSupplier = supplierList.filter(
+    (s) => s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           s.code.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  const filteredLokasi = lokasiList.filter(
+    (l) => l.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           l.code.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Open modal
+  const handleOpenModal = (item?: any) => {
+    setFormError("");
+    if (item) {
+      setIsEdit(true);
+      setEditId(item.id);
+      if (activeTab === "barang") {
+        setBarangForm({
+          code: item.code, name: item.name, brand: item.brand || "",
+          description: item.description || "",
+          category_id: item.category_id || "",
+          supplier_id: item.supplier_id || "",
+          unit_id: item.unit_id || "",
+          storage_location_id: item.storage_location_id || "",
+          stock: item.stock, stock_minimum: item.stock_minimum,
+          purchase_price: item.purchase_price, selling_price: item.selling_price,
+          is_active: item.is_active,
+        });
+      } else if (activeTab === "supplier") {
+        setSupplierForm({
+          code: item.code, name: item.name,
+          contact_person: item.contact_person || "",
+          phone: item.phone || "", email: item.email || "",
+          address: item.address || "", city: item.city || "",
+          is_active: item.is_active,
+        });
+      } else {
+        setLokasiForm({
+          code: item.code, name: item.name,
+          description: item.description || "", is_active: item.is_active,
+        });
+      }
+    } else {
+      setIsEdit(false);
+      setEditId(null);
+      setBarangForm({ code: "", name: "", brand: "", description: "", category_id: "", supplier_id: "", unit_id: "", storage_location_id: "", stock: 0, stock_minimum: 0, purchase_price: 0, selling_price: 0, is_active: true });
+      setSupplierForm({ code: "", name: "", contact_person: "", phone: "", email: "", address: "", city: "", is_active: true });
+      setLokasiForm({ code: "", name: "", description: "", is_active: true });
+    }
+    setShowModal(true);
+  };
+
+  // Submit
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError("");
+    setLoading(true);
+
+    try {
+      let response;
+      if (activeTab === "barang") {
+        const payload = { ...barangForm, category_id: barangForm.category_id || null, supplier_id: barangForm.supplier_id || null, unit_id: barangForm.unit_id || null, storage_location_id: barangForm.storage_location_id || null };
+        response = isEdit ? await apiClient.put(`/items/${editId}`, payload) : await apiClient.post("/items", payload);
+        if (response.status) { await fetchBarang(); setShowModal(false); }
+      } else if (activeTab === "supplier") {
+        response = isEdit ? await apiClient.put(`/suppliers/${editId}`, supplierForm) : await apiClient.post("/suppliers", supplierForm);
+        if (response.status) { await fetchSupplier(); setShowModal(false); }
+      } else {
+        response = isEdit ? await apiClient.put(`/storage-locations/${editId}`, lokasiForm) : await apiClient.post("/storage-locations", lokasiForm);
+        if (response.status) { await fetchLokasi(); setShowModal(false); }
+      }
+      if (response && !response.status) setFormError(response.message || "Gagal menyimpan data.");
+    } catch (err: any) {
+      const errors = err?.errors;
+      if (errors) {
+        const firstError = Object.values(errors)[0] as string[];
+        setFormError(firstError[0]);
+      } else {
+        setFormError(err?.message || "Terjadi kesalahan.");
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
-  const filteredBarang = barangData.filter((item) => {
-    const matchSearch =
-      item.nama.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.kode.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchCategory = selectedCategory === "all" || item.kategori === selectedCategory;
-    return matchSearch && matchCategory;
-  });
+  // Delete
+  const handleDelete = async (id: number) => {
+    if (!confirm("Apakah Anda yakin ingin menghapus data ini?")) return;
+    try {
+      if (activeTab === "barang")    { const r = await apiClient.delete(`/items/${id}`);             if (r.status) await fetchBarang(); }
+      if (activeTab === "supplier")  { const r = await apiClient.delete(`/suppliers/${id}`);          if (r.status) await fetchSupplier(); }
+      if (activeTab === "lokasi")    { const r = await apiClient.delete(`/storage-locations/${id}`);  if (r.status) await fetchLokasi(); }
+    } catch { alert("Gagal menghapus data."); }
+  };
 
-  const tabs: Tab[] = [
-    { id: "barang", label: "Barang", icon: Package },
+  // Tambah kategori
+  const handleAddCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const response = await apiClient.post("/categories", { name: categoryForm.name });
+      if (response.status) {
+        await fetchCategory();
+        setShowCategoryModal(false);
+        setCategoryForm({ name: "" });
+      }
+    } catch { alert("Gagal menambah kategori."); }
+  };
+
+  const tabs = [
+    { id: "barang",   label: "Barang",   icon: Package },
     { id: "supplier", label: "Supplier", icon: Users },
-    { id: "lokasi", label: "Lokasi", icon: MapPin },
+    { id: "lokasi",   label: "Lokasi",   icon: MapPin },
   ];
+
+  const getTambahLabel = () =>
+    activeTab === "barang" ? "Barang" : activeTab === "supplier" ? "Supplier" : "Lokasi";
 
   return (
     <MainLayout>
@@ -100,7 +236,7 @@ export default function DataMaster() {
             {tabs.map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => { setActiveTab(tab.id); setSearchTerm(""); setSelectedCategory("all"); }}
+                onClick={() => { setActiveTab(tab.id); setSearchTerm(""); }}
                 className={`flex items-center gap-2 px-6 py-3 rounded-lg transition font-medium ${
                   activeTab === tab.id
                     ? "bg-gradient-to-r from-[#378ADD] to-[#0C447C] text-white shadow-lg"
@@ -114,7 +250,7 @@ export default function DataMaster() {
           </div>
         </div>
 
-        {/* Search and Filter Bar */}
+        {/* Search & Tambah */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1 relative">
@@ -123,34 +259,24 @@ export default function DataMaster() {
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder={`Cari ${activeTab}...`}
-                className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD] focus:border-transparent"
+                placeholder={`Cari ${getTambahLabel().toLowerCase()}...`}
+                className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]"
               />
             </div>
-            {activeTab === "barang" && (
-              <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD] focus:border-transparent min-w-[200px]"
-              >
-                <option value="all">Semua Kategori</option>
-                {categories.map((cat, index) => (
-                  <option key={index} value={cat}>{cat}</option>
-                ))}
-              </select>
-            )}
             <button
-              onClick={() => setShowModal(true)}
+              onClick={() => handleOpenModal()}
               className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#378ADD] to-[#0C447C] text-white rounded-xl hover:shadow-xl transition font-medium"
             >
               <Plus className="w-5 h-5" />
-              Tambah {activeTab === "barang" ? "Barang" : activeTab === "supplier" ? "Supplier" : "Lokasi"}
+              Tambah {getTambahLabel()}
             </button>
           </div>
         </div>
 
         {/* Content */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+
+          {/* Tab Barang */}
           {activeTab === "barang" && (
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -166,24 +292,28 @@ export default function DataMaster() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredBarang.map((item) => (
+                  {filteredBarang.length === 0 ? (
+                    <tr><td colSpan={7} className="text-center text-gray-500 py-8">Tidak ada barang.</td></tr>
+                  ) : filteredBarang.map((item) => (
                     <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50 transition">
-                      <td className="px-6 py-4 text-gray-600 font-mono text-sm">{item.kode}</td>
-                      <td className="px-6 py-4 text-[#0C447C] font-medium">{item.nama}</td>
+                      <td className="px-6 py-4 text-gray-600 font-mono text-sm">{item.code}</td>
+                      <td className="px-6 py-4 text-[#0C447C] font-medium">{item.name}</td>
                       <td className="px-6 py-4">
                         <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
-                          {item.kategori}
+                          {item.category?.name || "-"}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-gray-600">{item.stok} {item.satuan}</td>
-                      <td className="px-6 py-4 text-gray-600">{item.supplier}</td>
-                      <td className="px-6 py-4 text-gray-600">{item.lokasi}</td>
+                      <td className="px-6 py-4 text-gray-600">
+                        {item.stock} {item.unit?.abbreviation || ""}
+                      </td>
+                      <td className="px-6 py-4 text-gray-600">{item.supplier?.name || "-"}</td>
+                      <td className="px-6 py-4 text-gray-600">{item.storage_location?.name || "-"}</td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
-                          <button className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition">
+                          <button onClick={() => handleOpenModal(item)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition">
                             <Edit2 className="w-4 h-4" />
                           </button>
-                          <button className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition">
+                          <button onClick={() => handleDelete(item.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition">
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
@@ -195,31 +325,42 @@ export default function DataMaster() {
             </div>
           )}
 
+          {/* Tab Supplier */}
           {activeTab === "supplier" && (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b-2 border-gray-200">
+                    <th className="px-6 py-4 text-left text-[#0C447C] font-semibold">Kode</th>
                     <th className="px-6 py-4 text-left text-[#0C447C] font-semibold">Nama Supplier</th>
                     <th className="px-6 py-4 text-left text-[#0C447C] font-semibold">Kontak</th>
                     <th className="px-6 py-4 text-left text-[#0C447C] font-semibold">Email</th>
-                    <th className="px-6 py-4 text-left text-[#0C447C] font-semibold">Alamat</th>
+                    <th className="px-6 py-4 text-left text-[#0C447C] font-semibold">Kota</th>
+                    <th className="px-6 py-4 text-left text-[#0C447C] font-semibold">Status</th>
                     <th className="px-6 py-4 text-left text-[#0C447C] font-semibold">Aksi</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {supplierData.map((supplier) => (
-                    <tr key={supplier.id} className="border-b border-gray-100 hover:bg-gray-50 transition">
-                      <td className="px-6 py-4 text-[#0C447C] font-medium">{supplier.nama}</td>
-                      <td className="px-6 py-4 text-gray-600">{supplier.kontak}</td>
-                      <td className="px-6 py-4 text-gray-600">{supplier.email}</td>
-                      <td className="px-6 py-4 text-gray-600">{supplier.alamat}</td>
+                  {filteredSupplier.length === 0 ? (
+                    <tr><td colSpan={7} className="text-center text-gray-500 py-8">Tidak ada supplier.</td></tr>
+                  ) : filteredSupplier.map((s) => (
+                    <tr key={s.id} className="border-b border-gray-100 hover:bg-gray-50 transition">
+                      <td className="px-6 py-4 text-gray-600 font-mono text-sm">{s.code}</td>
+                      <td className="px-6 py-4 text-[#0C447C] font-medium">{s.name}</td>
+                      <td className="px-6 py-4 text-gray-600">{s.phone || "-"}</td>
+                      <td className="px-6 py-4 text-gray-600">{s.email || "-"}</td>
+                      <td className="px-6 py-4 text-gray-600">{s.city || "-"}</td>
+                      <td className="px-6 py-4">
+                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${s.is_active ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                          {s.is_active ? "Aktif" : "Nonaktif"}
+                        </span>
+                      </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
-                          <button className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition">
+                          <button onClick={() => handleOpenModal(s)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition">
                             <Edit2 className="w-4 h-4" />
                           </button>
-                          <button className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition">
+                          <button onClick={() => handleDelete(s.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition">
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
@@ -231,200 +372,279 @@ export default function DataMaster() {
             </div>
           )}
 
+          {/* Tab Lokasi */}
           {activeTab === "lokasi" && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {lokasiData.map((lokasi) => (
-                <div key={lokasi.id} className="p-6 border-2 border-gray-200 rounded-xl hover:border-[#378ADD] hover:shadow-lg transition">
+              {filteredLokasi.length === 0 ? (
+                <p className="text-gray-500 col-span-3 text-center py-8">Tidak ada lokasi.</p>
+              ) : filteredLokasi.map((l) => (
+                <div key={l.id} className="p-6 border-2 border-gray-200 rounded-xl hover:border-[#378ADD] hover:shadow-lg transition">
                   <div className="flex items-start justify-between mb-4">
                     <div className="p-3 bg-gradient-to-br from-[#378ADD] to-[#0C447C] rounded-xl">
                       <MapPin className="w-6 h-6 text-white" />
                     </div>
                     <div className="flex gap-2">
-                      <button className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition">
+                      <button onClick={() => handleOpenModal(l)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition">
                         <Edit2 className="w-4 h-4" />
                       </button>
-                      <button className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition">
+                      <button onClick={() => handleDelete(l.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
-                  <h3 className="text-xl font-bold text-[#0C447C] mb-1">{lokasi.nama}</h3>
-                  <p className="text-gray-600 mb-4">Kode: {lokasi.kode}</p>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Kapasitas</span>
-                      <span className="font-semibold text-[#0C447C]">{lokasi.kapasitas}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Terisi</span>
-                      <span className="font-semibold text-[#378ADD]">{lokasi.terisi}</span>
-                    </div>
-                  </div>
+                  <h3 className="text-xl font-bold text-[#0C447C] mb-1">{l.name}</h3>
+                  <p className="text-gray-600 mb-2">Kode: {l.code}</p>
+                  {l.description && <p className="text-gray-500 text-sm">{l.description}</p>}
+                  <span className={`mt-3 inline-block px-3 py-1 rounded-full text-sm font-medium ${l.is_active ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                    {l.is_active ? "Aktif" : "Nonaktif"}
+                  </span>
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        {/* Add Modal */}
+        {/* Modal Tambah/Edit */}
         {showModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-8 max-h-[90vh] overflow-y-auto">
               <h2 className="text-2xl font-bold text-[#0C447C] mb-6">
-                Tambah {activeTab === "barang" ? "Barang" : activeTab === "supplier" ? "Supplier" : "Lokasi"}
+                {isEdit ? "Edit" : "Tambah"} {getTambahLabel()}
               </h2>
+              <form onSubmit={handleSubmit} className="space-y-4">
 
-              {activeTab === "barang" && (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block mb-2 text-[#0C447C] font-medium">Kode Barang</label>
-                      <input type="text" className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]" placeholder="Contoh: RES-001" />
+                {/* Form Barang */}
+                {activeTab === "barang" && (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block mb-2 text-[#0C447C] font-medium">Kode Barang</label>
+                        <input type="text" value={barangForm.code} onChange={(e) => setBarangForm({ ...barangForm, code: e.target.value })}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]"
+                          placeholder="Contoh: KBL-001" required />
+                      </div>
+                      <div>
+                        <label className="block mb-2 text-[#0C447C] font-medium">Nama Barang</label>
+                        <input type="text" value={barangForm.name} onChange={(e) => setBarangForm({ ...barangForm, name: e.target.value })}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]"
+                          placeholder="Nama barang" required />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block mb-2 text-[#0C447C] font-medium">Brand</label>
+                        <input type="text" value={barangForm.brand} onChange={(e) => setBarangForm({ ...barangForm, brand: e.target.value })}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]"
+                          placeholder="Nama brand" />
+                      </div>
+                      <div>
+                        <label className="block mb-2 text-[#0C447C] font-medium">Kategori</label>
+                        <div className="flex gap-2">
+                          <select value={barangForm.category_id} onChange={(e) => setBarangForm({ ...barangForm, category_id: e.target.value })}
+                            className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]">
+                            <option value="">Pilih Kategori</option>
+                            {categoryList.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                          </select>
+                          <button type="button" onClick={() => setShowCategoryModal(true)}
+                            className="px-3 py-3 bg-green-500 text-white rounded-xl hover:bg-green-600 transition">
+                            <FolderPlus className="w-5 h-5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block mb-2 text-[#0C447C] font-medium">Supplier</label>
+                        <select value={barangForm.supplier_id} onChange={(e) => setBarangForm({ ...barangForm, supplier_id: e.target.value })}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]">
+                          <option value="">Pilih Supplier</option>
+                          {supplierList.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block mb-2 text-[#0C447C] font-medium">Satuan</label>
+                        <select value={barangForm.unit_id} onChange={(e) => setBarangForm({ ...barangForm, unit_id: e.target.value })}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]">
+                          <option value="">Pilih Satuan</option>
+                          {unitList.map((u) => <option key={u.id} value={u.id}>{u.name} ({u.abbreviation})</option>)}
+                        </select>
+                      </div>
                     </div>
                     <div>
-                      <label className="block mb-2 text-[#0C447C] font-medium">Nama Barang</label>
-                      <input type="text" className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]" placeholder="Nama barang" />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block mb-2 text-[#0C447C] font-medium">Kategori</label>
-                    <div className="flex gap-2">
-                      <select className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]">
-                        <option value="">Pilih Kategori</option>
-                        {categories.map((cat, index) => (
-                          <option key={index} value={cat}>{cat}</option>
-                        ))}
+                      <label className="block mb-2 text-[#0C447C] font-medium">Lokasi Penyimpanan</label>
+                      <select value={barangForm.storage_location_id} onChange={(e) => setBarangForm({ ...barangForm, storage_location_id: e.target.value })}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]">
+                        <option value="">Pilih Lokasi</option>
+                        {lokasiList.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
                       </select>
-                      <button
-                        type="button"
-                        onClick={() => setShowCategoryModal(true)}
-                        className="flex items-center gap-2 px-4 py-3 bg-green-500 text-white rounded-xl hover:bg-green-600 transition font-medium"
-                      >
-                        <FolderPlus className="w-5 h-5" />
-                        Tambah Kategori
-                      </button>
                     </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block mb-2 text-[#0C447C] font-medium">Stok Awal</label>
-                      <input type="number" className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]" placeholder="0" />
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block mb-2 text-[#0C447C] font-medium">Stok Awal</label>
+                        <input type="number" value={barangForm.stock} onChange={(e) => setBarangForm({ ...barangForm, stock: Number(e.target.value) })}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]" min={0} />
+                      </div>
+                      <div>
+                        <label className="block mb-2 text-[#0C447C] font-medium">Stok Minimum</label>
+                        <input type="number" value={barangForm.stock_minimum} onChange={(e) => setBarangForm({ ...barangForm, stock_minimum: Number(e.target.value) })}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]" min={0} />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block mb-2 text-[#0C447C] font-medium">Harga Beli</label>
+                        <input type="number" value={barangForm.purchase_price} onChange={(e) => setBarangForm({ ...barangForm, purchase_price: Number(e.target.value) })}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]" min={0} />
+                      </div>
+                      <div>
+                        <label className="block mb-2 text-[#0C447C] font-medium">Harga Jual</label>
+                        <input type="number" value={barangForm.selling_price} onChange={(e) => setBarangForm({ ...barangForm, selling_price: Number(e.target.value) })}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]" min={0} />
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* Form Supplier */}
+                {activeTab === "supplier" && (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block mb-2 text-[#0C447C] font-medium">Kode Supplier</label>
+                        <input type="text" value={supplierForm.code} onChange={(e) => setSupplierForm({ ...supplierForm, code: e.target.value })}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]"
+                          placeholder="Contoh: SUP-002" required />
+                      </div>
+                      <div>
+                        <label className="block mb-2 text-[#0C447C] font-medium">Nama Supplier</label>
+                        <input type="text" value={supplierForm.name} onChange={(e) => setSupplierForm({ ...supplierForm, name: e.target.value })}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]"
+                          placeholder="Nama supplier" required />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block mb-2 text-[#0C447C] font-medium">Kontak Person</label>
+                        <input type="text" value={supplierForm.contact_person} onChange={(e) => setSupplierForm({ ...supplierForm, contact_person: e.target.value })}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]"
+                          placeholder="Nama kontak" />
+                      </div>
+                      <div>
+                        <label className="block mb-2 text-[#0C447C] font-medium">No. Telepon</label>
+                        <input type="text" value={supplierForm.phone} onChange={(e) => setSupplierForm({ ...supplierForm, phone: e.target.value })}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]"
+                          placeholder="021-xxxxxxxx" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block mb-2 text-[#0C447C] font-medium">Email</label>
+                        <input type="email" value={supplierForm.email} onChange={(e) => setSupplierForm({ ...supplierForm, email: e.target.value })}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]"
+                          placeholder="email@supplier.com" />
+                      </div>
+                      <div>
+                        <label className="block mb-2 text-[#0C447C] font-medium">Kota</label>
+                        <input type="text" value={supplierForm.city} onChange={(e) => setSupplierForm({ ...supplierForm, city: e.target.value })}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]"
+                          placeholder="Jakarta" />
+                      </div>
                     </div>
                     <div>
-                      <label className="block mb-2 text-[#0C447C] font-medium">Satuan</label>
-                      <select className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]">
-                        <option>Box</option>
-                        <option>Unit</option>
+                      <label className="block mb-2 text-[#0C447C] font-medium">Alamat</label>
+                      <textarea rows={3} value={supplierForm.address} onChange={(e) => setSupplierForm({ ...supplierForm, address: e.target.value })}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]"
+                        placeholder="Alamat lengkap supplier" />
+                    </div>
+                    <div>
+                      <label className="block mb-2 text-[#0C447C] font-medium">Status</label>
+                      <select value={supplierForm.is_active ? "aktif" : "nonaktif"} onChange={(e) => setSupplierForm({ ...supplierForm, is_active: e.target.value === "aktif" })}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]">
+                        <option value="aktif">Aktif</option>
+                        <option value="nonaktif">Nonaktif</option>
                       </select>
                     </div>
-                  </div>
-                  <div>
-                    <label className="block mb-2 text-[#0C447C] font-medium">Supplier</label>
-                    <select className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]">
-                      <option value="">Pilih Supplier</option>
-                      {supplierData.map((supplier) => (
-                        <option key={supplier.id} value={supplier.nama}>{supplier.nama}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block mb-2 text-[#0C447C] font-medium">Lokasi</label>
-                    <select className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]">
-                      <option value="">Pilih Lokasi</option>
-                      {lokasiData.map((lok) => (
-                        <option key={lok.id} value={lok.kode}>{lok.nama}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              )}
+                  </>
+                )}
 
-              {activeTab === "supplier" && (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block mb-2 text-[#0C447C] font-medium">Nama Supplier</label>
-                    <input type="text" className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]" placeholder="Contoh: PT Elektronika Jaya" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block mb-2 text-[#0C447C] font-medium">Kontak</label>
-                      <input type="text" className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]" placeholder="021-12345678" />
+                {/* Form Lokasi */}
+                {activeTab === "lokasi" && (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block mb-2 text-[#0C447C] font-medium">Kode Lokasi</label>
+                        <input type="text" value={lokasiForm.code} onChange={(e) => setLokasiForm({ ...lokasiForm, code: e.target.value })}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]"
+                          placeholder="Contoh: RAK-A1" required />
+                      </div>
+                      <div>
+                        <label className="block mb-2 text-[#0C447C] font-medium">Nama Lokasi</label>
+                        <input type="text" value={lokasiForm.name} onChange={(e) => setLokasiForm({ ...lokasiForm, name: e.target.value })}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]"
+                          placeholder="Contoh: Rak A - Baris 1" required />
+                      </div>
                     </div>
                     <div>
-                      <label className="block mb-2 text-[#0C447C] font-medium">Email</label>
-                      <input type="email" className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]" placeholder="email@supplier.com" />
+                      <label className="block mb-2 text-[#0C447C] font-medium">Deskripsi</label>
+                      <textarea rows={3} value={lokasiForm.description} onChange={(e) => setLokasiForm({ ...lokasiForm, description: e.target.value })}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]"
+                        placeholder="Deskripsi lokasi" />
                     </div>
-                  </div>
-                  <div>
-                    <label className="block mb-2 text-[#0C447C] font-medium">Alamat</label>
-                    <textarea rows={3} className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]" placeholder="Alamat lengkap supplier"></textarea>
-                  </div>
-                </div>
-              )}
+                    <div>
+                      <label className="block mb-2 text-[#0C447C] font-medium">Status</label>
+                      <select value={lokasiForm.is_active ? "aktif" : "nonaktif"} onChange={(e) => setLokasiForm({ ...lokasiForm, is_active: e.target.value === "aktif" })}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]">
+                        <option value="aktif">Aktif</option>
+                        <option value="nonaktif">Nonaktif</option>
+                      </select>
+                    </div>
+                  </>
+                )}
 
-              {activeTab === "lokasi" && (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block mb-2 text-[#0C447C] font-medium">Kode Lokasi</label>
-                      <input type="text" className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]" placeholder="Contoh: A1" />
-                    </div>
-                    <div>
-                      <label className="block mb-2 text-[#0C447C] font-medium">Nama Lokasi</label>
-                      <input type="text" className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]" placeholder="Contoh: Rak A1" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block mb-2 text-[#0C447C] font-medium">Kapasitas</label>
-                      <input type="text" className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]" placeholder="Contoh: 100 Box" />
-                    </div>
-                    <div>
-                      <label className="block mb-2 text-[#0C447C] font-medium">Terisi</label>
-                      <input type="text" className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]" placeholder="Contoh: 0 Box" />
-                    </div>
-                  </div>
-                </div>
-              )}
+                {formError && <p className="text-red-600 text-sm">{formError}</p>}
 
-              <div className="flex gap-4 mt-8">
-                <button onClick={() => setShowModal(false)} className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition font-medium">
-                  Batal
-                </button>
-                <button onClick={() => setShowModal(false)} className="flex-1 px-6 py-3 bg-gradient-to-r from-[#378ADD] to-[#0C447C] text-white rounded-xl hover:shadow-xl transition font-medium">
-                  Simpan
-                </button>
-              </div>
+                <div className="flex gap-4 pt-4">
+                  <button type="button" onClick={() => setShowModal(false)}
+                    className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition font-medium">
+                    Batal
+                  </button>
+                  <button type="submit" disabled={loading}
+                    className="flex-1 px-6 py-3 bg-gradient-to-r from-[#378ADD] to-[#0C447C] text-white rounded-xl hover:shadow-xl transition font-semibold disabled:opacity-70">
+                    {loading ? "Menyimpan..." : isEdit ? "Simpan" : "Tambah"}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}
 
-        {/* Add Category Modal */}
+        {/* Modal Tambah Kategori */}
         {showCategoryModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8">
               <h3 className="text-xl font-bold text-[#0C447C] mb-6">Tambah Kategori Baru</h3>
-              <div>
-                <label className="block mb-2 text-[#0C447C] font-medium">Nama Kategori</label>
-                <input
-                  type="text"
-                  value={newCategory}
-                  onChange={(e) => setNewCategory(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]"
-                  placeholder="Contoh: Dioda"
-                />
-              </div>
-              <div className="flex gap-4 mt-6">
-                <button onClick={() => { setShowCategoryModal(false); setNewCategory(""); }} className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition font-medium">
-                  Batal
-                </button>
-                <button onClick={handleAddCategory} className="flex-1 px-6 py-3 bg-gradient-to-r from-[#378ADD] to-[#0C447C] text-white rounded-xl hover:shadow-xl transition font-medium">
-                  Tambah
-                </button>
-              </div>
+              <form onSubmit={handleAddCategory} className="space-y-4">
+                <div>
+                  <label className="block mb-2 text-[#0C447C] font-medium">Nama Kategori</label>
+                  <input type="text" value={categoryForm.name} onChange={(e) => setCategoryForm({ name: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]"
+                    placeholder="Contoh: Sensor & Modul" required />
+                </div>
+                <div className="flex gap-4">
+                  <button type="button" onClick={() => { setShowCategoryModal(false); setCategoryForm({ name: "" }); }}
+                    className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition font-medium">
+                    Batal
+                  </button>
+                  <button type="submit"
+                    className="flex-1 px-6 py-3 bg-gradient-to-r from-[#378ADD] to-[#0C447C] text-white rounded-xl hover:shadow-xl transition font-medium">
+                    Tambah
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}
+
       </div>
     </MainLayout>
   );
