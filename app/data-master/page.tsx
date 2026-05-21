@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Package, Users, MapPin, Search, Plus, Edit2, Trash2, FolderPlus } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Package, Users, MapPin, Search, Plus, Edit2, Trash2, FolderPlus, ImageIcon } from "lucide-react";
 import MainLayout from "@/components/MainLayout";
 import { apiClient } from "@/lib/api";
 
@@ -18,6 +18,8 @@ interface Barang {
   stock_minimum: number;
   purchase_price: number;
   is_active: boolean;
+  image: string | null;
+  image_url: string | null;
   category: { id: number; name: string } | null;
   supplier: { id: number; name: string } | null;
   unit: { id: number; name: string; abbreviation: string } | null;
@@ -78,6 +80,10 @@ export default function DataMaster() {
     stock: 0, stock_minimum: 0, purchase_price: 0, is_active: true,
   });
 
+  const [imageFile, setImageFile]       = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef                    = useRef<HTMLInputElement>(null);
+
   const [supplierForm, setSupplierForm] = useState({
     code: "", name: "", contact_person: "", phone: "",
     email: "", address: "", city: "", is_active: true,
@@ -112,8 +118,18 @@ export default function DataMaster() {
            l.code.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
+    }
+  };
+
   const handleOpenModal = (item?: any) => {
     setFormError("");
+    setImageFile(null);
+    setImagePreview(null);
     if (item) {
       setIsEdit(true);
       setEditId(item.id);
@@ -129,6 +145,7 @@ export default function DataMaster() {
           purchase_price: item.purchase_price,
           is_active: item.is_active,
         });
+        if (item.image_url) setImagePreview(item.image_url);
       } else if (activeTab === "supplier") {
         setSupplierForm({
           code: item.code, name: item.name,
@@ -160,8 +177,24 @@ export default function DataMaster() {
     try {
       let response;
       if (activeTab === "barang") {
-        const payload = { ...barangForm, category_id: barangForm.category_id || null, supplier_id: barangForm.supplier_id || null, unit_id: barangForm.unit_id || null, storage_location_id: barangForm.storage_location_id || null };
-        response = isEdit ? await apiClient.put(`/items/${editId}`, payload) : await apiClient.post("/items", payload);
+        const formData = new FormData();
+        formData.append('code', barangForm.code);
+        formData.append('name', barangForm.name);
+        formData.append('brand', barangForm.brand);
+        formData.append('description', barangForm.description);
+        formData.append('stock', String(barangForm.stock));
+        formData.append('stock_minimum', String(barangForm.stock_minimum));
+        formData.append('purchase_price', String(barangForm.purchase_price));
+        formData.append('is_active', barangForm.is_active ? '1' : '0');
+        if (barangForm.category_id) formData.append('category_id', barangForm.category_id);
+        if (barangForm.supplier_id) formData.append('supplier_id', barangForm.supplier_id);
+        if (barangForm.unit_id) formData.append('unit_id', barangForm.unit_id);
+        if (barangForm.storage_location_id) formData.append('storage_location_id', barangForm.storage_location_id);
+        if (imageFile) formData.append('image', imageFile);
+
+        response = isEdit
+          ? await apiClient.putForm(`/items/${editId}`, formData)
+          : await apiClient.postForm("/items", formData);
         if (response.status) { await fetchBarang(); setShowModal(false); }
       } else if (activeTab === "supplier") {
         response = isEdit ? await apiClient.put(`/suppliers/${editId}`, supplierForm) : await apiClient.post("/suppliers", supplierForm);
@@ -269,6 +302,7 @@ export default function DataMaster() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b-2 border-gray-200">
+                    <th className="px-6 py-4 text-left text-[#0C447C] font-semibold">Gambar</th>
                     <th className="px-6 py-4 text-left text-[#0C447C] font-semibold">Kode</th>
                     <th className="px-6 py-4 text-left text-[#0C447C] font-semibold">Nama Barang</th>
                     <th className="px-6 py-4 text-left text-[#0C447C] font-semibold">Kategori</th>
@@ -280,9 +314,19 @@ export default function DataMaster() {
                 </thead>
                 <tbody>
                   {filteredBarang.length === 0 ? (
-                    <tr><td colSpan={7} className="text-center text-gray-500 py-8">Tidak ada barang.</td></tr>
+                    <tr><td colSpan={8} className="text-center text-gray-500 py-8">Tidak ada barang.</td></tr>
                   ) : filteredBarang.map((item) => (
                     <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50 transition">
+                      <td className="px-6 py-4">
+                        {item.image_url ? (
+                          <img src={item.image_url} alt={item.name}
+                            className="w-12 h-12 object-cover rounded-lg border border-gray-200" />
+                        ) : (
+                          <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                            <ImageIcon className="w-6 h-6 text-gray-400" />
+                          </div>
+                        )}
+                      </td>
                       <td className="px-6 py-4 text-gray-600 font-mono text-sm">{item.code}</td>
                       <td className="px-6 py-4 text-[#0C447C] font-medium">{item.name}</td>
                       <td className="px-6 py-4">
@@ -481,6 +525,36 @@ export default function DataMaster() {
                       <label className="block mb-2 text-[#0C447C] font-medium">Harga Beli</label>
                       <input type="number" value={barangForm.purchase_price} onChange={(e) => setBarangForm({ ...barangForm, purchase_price: Number(e.target.value) })}
                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]" min={0} />
+                    </div>
+
+                    {/* Upload Gambar */}
+                    <div>
+                      <label className="block mb-2 text-[#0C447C] font-medium">Gambar Barang</label>
+                      <div
+                        onClick={() => fileInputRef.current?.click()}
+                        className="w-full border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer hover:border-[#378ADD] transition"
+                      >
+                        {imagePreview ? (
+                          <img src={imagePreview} alt="preview"
+                            className="w-32 h-32 object-cover rounded-xl mb-2" />
+                        ) : (
+                          <div className="flex flex-col items-center gap-2 py-4">
+                            <ImageIcon className="w-10 h-10 text-gray-400" />
+                            <p className="text-gray-500 text-sm">Klik untuk upload gambar</p>
+                            <p className="text-gray-400 text-xs">JPG, JPEG, PNG, WEBP — Maks. 2MB</p>
+                          </div>
+                        )}
+                        {imagePreview && (
+                          <p className="text-xs text-gray-500 mt-1">Klik untuk ganti gambar</p>
+                        )}
+                      </div>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/jpg,image/jpeg,image/png,image/webp"
+                        onChange={handleImageChange}
+                        className="hidden"
+                      />
                     </div>
                   </>
                 )}

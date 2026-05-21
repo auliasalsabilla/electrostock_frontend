@@ -17,6 +17,15 @@ const buildHeaders = (extra?: HeadersInit) => {
   };
 };
 
+const buildFormHeaders = () => {
+  const token = getToken();
+  return {
+    'Accept': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    // Tidak set Content-Type — biar browser set otomatis dengan boundary
+  };
+};
+
 const handleResponse = async (response: Response) => {
   if (response.status === 401) {
     localStorage.removeItem('access_token');
@@ -61,6 +70,27 @@ export const apiClient = {
       method: 'DELETE',
       headers: buildHeaders(options?.headers),
       ...options,
+    });
+    return handleResponse(response);
+  },
+
+  // Untuk upload file (FormData)
+  async postForm(endpoint: string, formData: FormData) {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: 'POST',
+      headers: buildFormHeaders(),
+      body: formData,
+    });
+    return handleResponse(response);
+  },
+
+  // Untuk update dengan file (FormData) — pakai POST + _method=PUT
+  async putForm(endpoint: string, formData: FormData) {
+    formData.append('_method', 'PUT');
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: 'POST',
+      headers: buildFormHeaders(),
+      body: formData,
     });
     return handleResponse(response);
   },
