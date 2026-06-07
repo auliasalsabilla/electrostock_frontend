@@ -1,45 +1,102 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { AlertTriangle, AlertCircle, Check, Package } from "lucide-react";
 import MainLayout from "@/components/MainLayout";
 
+const API = process.env.NEXT_PUBLIC_API_URL;
+
+function getToken() {
+  if (typeof window === "undefined") return "";
+  return localStorage.getItem("access_token") || "";
+}
+
+function getHeaders() {
+  return {
+    Accept: "application/json",
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${getToken()}`,
+  };
+}
+
 interface Notification {
   id: number;
-  item: string;
-  current: number;
-  minimum: number;
-  percentage: number;
+  item_id: number;
+  type: string;
+  message: string;
   status: "critical" | "warning";
-  read: boolean;
+  is_read: boolean;
+  item: {
+    id: number;
+    name: string;
+    stock: number;
+    stock_minimum: number;
+  };
 }
 
 export default function Notifikasi() {
-  const [notifications, setNotifications] = useState<Notification[]>([
-    { id: 1, item: "Resistor 10K Ohm", current: 15, minimum: 50, percentage: 30, status: "critical", read: false },
-    { id: 2, item: "Kapasitor 100uF", current: 8, minimum: 30, percentage: 27, status: "critical", read: false },
-    { id: 3, item: "LED Merah 5mm", current: 45, minimum: 100, percentage: 45, status: "warning", read: false },
-    { id: 4, item: "Transistor NPN", current: 22, minimum: 40, percentage: 55, status: "warning", read: true },
-    { id: 5, item: "IC 555 Timer", current: 38, minimum: 60, percentage: 63, status: "warning", read: true },
-    { id: 6, item: "Dioda 1N4007", current: 12, minimum: 50, percentage: 24, status: "critical", read: false },
-  ]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading]             = useState<boolean>(false);
+  const hasFetched                        = useRef(false);
 
-  const markAsRead = (id: number) => {
-    setNotifications(notifications.map((notif) =>
-      notif.id === id ? { ...notif, read: true } : notif
-    ));
+  const fetchNotifications = async () => {
+    setLoading(true);
+    try {
+      const res  = await fetch(`${API}/notifications`, { headers: getHeaders() });
+      const data = await res.json();
+      if (data.status) setNotifications(data.data);
+    } catch (err) {
+      console.error("Gagal ambil notifikasi:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const markAllAsRead = () => {
-    setNotifications(notifications.map((notif) => ({ ...notif, read: true })));
+  useEffect(() => {
+    if (!hasFetched.current) {
+      hasFetched.current = true;
+      fetchNotifications();
+    }
+  }, []);
+
+  const markAsRead = async (id: number) => {
+    try {
+      await fetch(`${API}/notifications/${id}/read`, {
+        method: "PATCH",
+        headers: getHeaders(),
+      });
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
+      );
+    } catch (err) {
+      console.error("Gagal tandai dibaca:", err);
+    }
   };
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
-  const criticalCount = notifications.filter((n) => n.status === "critical" && !n.read).length;
+  const markAllAsRead = async () => {
+    try {
+      await fetch(`${API}/notifications/read-all`, {
+        method: "PATCH",
+        headers: getHeaders(),
+      });
+      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    } catch (err) {
+      console.error("Gagal tandai semua dibaca:", err);
+    }
+  };
+
+  const unreadCount   = notifications.filter((n) => !n.is_read).length;
+  const criticalCount = notifications.filter((n) => n.status === "critical" && !n.is_read).length;
+
+  const getPercentage = (notif: Notification) => {
+    if (!notif.item || notif.item.stock_minimum === 0) return 0;
+    return Math.round((notif.item.stock / notif.item.stock_minimum) * 100);
+  };
 
   return (
     <MainLayout>
       <div className="space-y-6">
+
         {/* Alert Banner */}
         {criticalCount > 0 && (
           <div className="bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl p-6 shadow-lg">
@@ -102,97 +159,110 @@ export default function Notifikasi() {
               <p className="text-gray-600 mt-1">Daftar barang yang mendekati atau di bawah stok minimum</p>
             </div>
             {unreadCount > 0 && (
-              <button
-                onClick={markAllAsRead}
-                className="flex items-center gap-2 px-4 py-2 bg-[#378ADD] text-white rounded-lg hover:bg-[#0C447C] transition font-medium"
-              >
+              <button onClick={markAllAsRead} className="flex items-center gap-2 px-4 py-2 bg-[#378ADD] text-white rounded-lg hover:bg-[#0C447C] transition font-medium">
                 <Check className="w-5 h-5" />
                 Tandai Semua Dibaca
               </button>
             )}
           </div>
 
-          <div className="space-y-4">
-            {notifications.map((notif) => (
-              <div
-                key={notif.id}
-                className={`p-6 rounded-xl border-2 transition ${
-                  notif.status === "critical"
-                    ? "border-red-300 bg-red-50/50 hover:bg-red-50"
-                    : "border-orange-300 bg-orange-50/50 hover:bg-orange-50"
-                } ${!notif.read ? "shadow-md" : "opacity-70"}`}
-              >
-                <div className="flex items-start justify-between gap-4 mb-4">
-                  <div className="flex items-start gap-4 flex-1">
-                    <div className={`p-3 rounded-xl ${notif.status === "critical" ? "bg-red-500" : "bg-orange-500"}`}>
-                      <AlertTriangle className="w-6 h-6 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <h3 className="text-lg font-bold text-[#0C447C] mb-1">{notif.item}</h3>
-                          <p className="text-sm text-gray-600">
-                            Stok saat ini:{" "}
-                            <span className={`font-bold ${notif.status === "critical" ? "text-red-600" : "text-orange-600"}`}>
-                              {notif.current}
-                            </span>{" "}
-                            dari minimum {notif.minimum} unit
-                          </p>
+          {/* Loading */}
+          {loading && (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#378ADD] mx-auto mb-4"></div>
+              <p className="text-gray-500">Memuat notifikasi...</p>
+            </div>
+          )}
+
+          {/* Empty */}
+          {!loading && notifications.length === 0 && (
+            <div className="text-center py-12">
+              <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500 text-lg">Tidak ada notifikasi stok rendah</p>
+              <p className="text-gray-400 text-sm mt-1">Semua stok barang dalam kondisi aman</p>
+            </div>
+          )}
+
+          {/* List */}
+          {!loading && notifications.length > 0 && (
+            <div className="space-y-4">
+              {notifications.map((notif) => {
+                const percentage = getPercentage(notif);
+                return (
+                  <div key={notif.id} className={`p-6 rounded-xl border-2 transition ${
+                    notif.status === "critical"
+                      ? "border-red-300 bg-red-50/50 hover:bg-red-50"
+                      : "border-orange-300 bg-orange-50/50 hover:bg-orange-50"
+                  } ${!notif.is_read ? "shadow-md" : "opacity-70"}`}>
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-4 flex-1">
+                        <div className={`p-3 rounded-xl ${notif.status === "critical" ? "bg-red-500" : "bg-orange-500"}`}>
+                          <AlertTriangle className="w-6 h-6 text-white" />
                         </div>
-                        <span className={`px-4 py-2 rounded-full text-sm font-bold ${notif.status === "critical" ? "bg-red-500 text-white" : "bg-orange-500 text-white"}`}>
-                          {notif.percentage}%
-                        </span>
+                        <div className="flex-1">
+                          <div className="flex items-start justify-between mb-2">
+                            <div>
+                              <h3 className="text-lg font-bold text-[#0C447C] mb-1">
+                                {notif.item?.name || "-"}
+                              </h3>
+                              <p className="text-sm text-gray-600">
+                                Stok saat ini:{" "}
+                                <span className={`font-bold ${notif.status === "critical" ? "text-red-600" : "text-orange-600"}`}>
+                                  {notif.item?.stock ?? 0}
+                                </span>{" "}
+                                dari minimum {notif.item?.stock_minimum ?? 0} unit
+                              </p>
+                            </div>
+                            <span className={`px-4 py-2 rounded-full text-sm font-bold ${notif.status === "critical" ? "bg-red-500 text-white" : "bg-orange-500 text-white"}`}>
+                              {percentage}%
+                            </span>
+                          </div>
+
+                          {/* Progress Bar */}
+                          <div className="mb-4">
+                            <div className="relative w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+                              <div
+                                className={`absolute top-0 left-0 h-full rounded-full transition-all ${
+                                  notif.status === "critical"
+                                    ? "bg-gradient-to-r from-red-500 to-red-600"
+                                    : "bg-gradient-to-r from-orange-500 to-orange-600"
+                                }`}
+                                style={{ width: `${Math.min(percentage, 100)}%` }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Status Badge */}
+                          <div className="flex items-center gap-2">
+                            <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold ${
+                              notif.status === "critical" ? "bg-red-200 text-red-800" : "bg-orange-200 text-orange-800"
+                            }`}>
+                              <AlertCircle className="w-4 h-4" />
+                              {notif.status === "critical" ? "Kritis - Segera Restok" : "Peringatan - Perlu Perhatian"}
+                            </span>
+                            {!notif.is_read && (
+                              <span className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-sm font-semibold">
+                                Baru
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
 
-                      {/* Progress Bar */}
-                      <div className="mb-4">
-                        <div className="relative w-full h-3 bg-gray-200 rounded-full overflow-hidden">
-                          <div
-                            className={`absolute top-0 left-0 h-full rounded-full transition-all ${
-                              notif.status === "critical"
-                                ? "bg-gradient-to-r from-red-500 to-red-600"
-                                : "bg-gradient-to-r from-orange-500 to-orange-600"
-                            }`}
-                            style={{ width: `${notif.percentage}%` }}
-                          ></div>
-                        </div>
-                      </div>
-
-                      {/* Status Badge */}
-                      <div className="flex items-center gap-2">
-                        <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold ${
-                          notif.status === "critical" ? "bg-red-200 text-red-800" : "bg-orange-200 text-orange-800"
-                        }`}>
-                          <AlertCircle className="w-4 h-4" />
-                          {notif.status === "critical" ? "Kritis - Segera Restok" : "Peringatan - Perlu Perhatian"}
-                        </span>
-                        {!notif.read && (
-                          <span className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-sm font-semibold">
-                            Baru
-                          </span>
+                      {/* Actions */}
+                      <div className="flex flex-col gap-2">
+                        {!notif.is_read && (
+                          <button onClick={() => markAsRead(notif.id)} className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition font-medium text-sm whitespace-nowrap">
+                            Tandai Dibaca
+                          </button>
                         )}
                       </div>
                     </div>
                   </div>
-
-                  {/* Actions */}
-                  <div className="flex flex-col gap-2">
-                    {!notif.read && (
-                      <button
-                        onClick={() => markAsRead(notif.id)}
-                        className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition font-medium text-sm whitespace-nowrap"
-                      >
-                        Tandai Dibaca
-                      </button>
-                    )}
-                    <button className="px-4 py-2 bg-[#378ADD] text-white rounded-lg hover:bg-[#0C447C] transition font-medium text-sm whitespace-nowrap">
-                      Restok Barang
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </MainLayout>

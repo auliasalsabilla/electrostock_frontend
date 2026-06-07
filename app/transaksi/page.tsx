@@ -1,241 +1,437 @@
 "use client";
 
-import { useState } from "react";
-import { TrendingUp, TrendingDown, Search, ChevronRight } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ArrowDown, ArrowUp, Plus, Edit2, Trash2, Search, CheckCircle, XCircle } from "lucide-react";
 import MainLayout from "@/components/MainLayout";
 
-interface Transaction {
-  id: number;
-  kode: string;
-  barang: string;
-  type: "masuk" | "keluar";
-  qty: number;
-  tanggal: string;
-  user: string;
-  keterangan: string;
+const API = process.env.NEXT_PUBLIC_API_URL;
+
+function getToken() {
+  if (typeof window === "undefined") return "";
+  return localStorage.getItem("access_token") || "";
 }
 
 export default function Transaksi() {
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [items, setItems] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<string>("semua");
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [showModal, setShowModal] = useState<boolean>(false);
-  const [modalType, setModalType] = useState<"masuk" | "keluar">("masuk");
-
-  const transactions: Transaction[] = [
-    { id: 1, kode: "TRX-001", barang: "Resistor 10K Ohm", type: "masuk", qty: 500, tanggal: "2 Apr 2026", user: "Budi Santoso", keterangan: "Pembelian rutin" },
-    { id: 2, kode: "TRX-002", barang: "Kapasitor 100uF", type: "keluar", qty: 150, tanggal: "2 Apr 2026", user: "Siti Rahayu", keterangan: "Produksi batch A" },
-    { id: 3, kode: "TRX-003", barang: "LED Merah 5mm", type: "masuk", qty: 1000, tanggal: "1 Apr 2026", user: "Ahmad Wijaya", keterangan: "Restok dari PT Elektronika" },
-    { id: 4, kode: "TRX-004", barang: "Transistor NPN", type: "keluar", qty: 75, tanggal: "1 Apr 2026", user: "Dewi Lestari", keterangan: "Project X" },
-    { id: 5, kode: "TRX-005", barang: "IC 555 Timer", type: "masuk", qty: 200, tanggal: "31 Mar 2026", user: "Budi Santoso", keterangan: "Pembelian supplier baru" },
-    { id: 6, kode: "TRX-006", barang: "Dioda 1N4007", type: "keluar", qty: 120, tanggal: "31 Mar 2026", user: "Siti Rahayu", keterangan: "Produksi batch B" },
-    { id: 7, kode: "TRX-007", barang: "Resistor 1K Ohm", type: "masuk", qty: 800, tanggal: "30 Mar 2026", user: "Ahmad Wijaya", keterangan: "Stock rutin" },
-  ];
-
-  const filteredTransactions = transactions.filter((item) => {
-    const matchSearch =
-      item.barang.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.kode.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchType = activeTab === "semua" || item.type === activeTab;
-    return matchSearch && matchType;
+  const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [editData, setEditData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [modalType, setModalType] = useState<"in" | "out">("in");
+  const [form, setForm] = useState({
+    type: "in",
+    item_id: "",
+    quantity: "",
+    price: "",
+    note: "",
+    transaction_date: new Date().toISOString().split("T")[0],
   });
 
-  const handleOpenModal = (type: "masuk" | "keluar") => {
-    setModalType(type);
+  function getHeaders() {
+    return {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${getToken()}`,
+    };
+  }
+
+  function showToast(type: "success" | "error", message: string) {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 3000);
+  }
+
+  useEffect(() => {
+    fetchTransactions();
+    fetchItems();
+  }, []);
+
+  async function fetchTransactions() {
+    try {
+      const res = await fetch(`${API}/transactions`, { headers: getHeaders() });
+      const data = await res.json();
+      if (data.status) setTransactions(data.data);
+    } catch {
+      showToast("error", "Gagal mengambil data transaksi");
+    }
+  }
+
+  async function fetchItems() {
+    try {
+      const res = await fetch(`${API}/items`, { headers: getHeaders() });
+      const data = await res.json();
+      if (data.status) setItems(data.data);
+    } catch {}
+  }
+
+  function openEdit(item: any) {
+    setEditData(item);
+    setModalType(item.type);
+    setForm({
+      type: item.type,
+      item_id: item.item_id,
+      quantity: item.quantity.toString(),
+      price: item.price?.toString() || "",
+      note: item.note || "",
+      transaction_date: item.transaction_date,
+    });
     setShowModal(true);
-  };
+  }
+
+  function handleOpenModal(type: "in" | "out") {
+    setEditData(null);
+    setModalType(type);
+    setForm({
+      type,
+      item_id: "",
+      quantity: "",
+      price: "",
+      note: "",
+      transaction_date: new Date().toISOString().split("T")[0],
+    });
+    setShowModal(true);
+  }
+
+  function confirmHapus(id: number) {
+    setDeleteId(id);
+    setShowDeleteModal(true);
+  }
+
+  async function handleHapus() {
+    if (!deleteId) return;
+    try {
+      const res = await fetch(`${API}/transactions/${deleteId}`, {
+        method: "DELETE",
+        headers: getHeaders(),
+      });
+      const data = await res.json();
+      if (data.status) {
+        await fetchTransactions();
+        showToast("success", "Transaksi berhasil dihapus!");
+      } else {
+        showToast("error", data.message || "Gagal menghapus transaksi");
+      }
+    } catch {
+      showToast("error", "Terjadi kesalahan");
+    } finally {
+      setShowDeleteModal(false);
+      setDeleteId(null);
+    }
+  }
+
+  async function handleSimpan() {
+    if (!form.item_id || !form.quantity || !form.transaction_date) {
+      showToast("error", "Harap isi semua field yang diperlukan");
+      return;
+    }
+
+    const url = editData
+      ? `${API}/transactions/${editData.id}`
+      : `${API}/transactions`;
+    const method = editData ? "PUT" : "POST";
+
+    setLoading(true);
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: getHeaders(),
+        body: JSON.stringify(form),
+      });
+      const data = await res.json();
+      if (data.status) {
+        setShowModal(false);
+        await fetchTransactions();
+        showToast("success", editData ? "Transaksi berhasil diupdate!" : "Transaksi berhasil ditambahkan!");
+      } else {
+        showToast("error", data.message || "Gagal menyimpan transaksi");
+      }
+    } catch {
+      showToast("error", "Terjadi kesalahan");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const filteredTransactions = transactions.filter((t) => {
+    const matchSearch =
+      t.item?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      t.code?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchType =
+      activeTab === "semua" ||
+      (activeTab === "in" && t.type === "in") ||
+      (activeTab === "out" && t.type === "out");
+    return matchSearch && matchType;
+  });
 
   return (
     <MainLayout>
       <div className="space-y-6">
+
+        {/* Toast */}
+        {toast && (
+          <div className={`fixed top-6 right-6 z-[100] flex items-center gap-3 px-5 py-4 rounded-xl shadow-lg text-white ${
+            toast.type === "success" ? "bg-green-500" : "bg-red-500"
+          }`}>
+            {toast.type === "success" ? <CheckCircle className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
+            <span className="font-medium">{toast.message}</span>
+          </div>
+        )}
+
+        {/* Tombol Stock In / Stock Out */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <button
-            onClick={() => handleOpenModal("masuk")}
-            className="group relative overflow-hidden rounded-2xl bg-[linear-gradient(135deg,#2e7d32_0%,#388e3c_52%,#66bb6a_100%)] p-6 text-left text-white shadow-[0_16px_30px_rgba(56,142,60,0.18)] transition hover:-translate-y-1 hover:shadow-[0_20px_36px_rgba(56,142,60,0.24)]"
+            onClick={() => handleOpenModal("in")}
+            className="group relative overflow-hidden rounded-2xl bg-[linear-gradient(135deg,#2e7d32_0%,#388e3c_52%,#66bb6a_100%)] p-6 text-left text-white shadow-lg transition hover:-translate-y-1"
           >
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.16),transparent_40%)]" />
-            <div className="absolute inset-x-0 bottom-0 h-16 bg-[linear-gradient(180deg,transparent,rgba(0,0,0,0.10))]" />
             <div className="relative flex items-center justify-between gap-4">
               <div className="flex items-center gap-4">
-                <div className="rounded-2xl bg-white/12 p-3 shadow-sm ring-1 ring-white/15 backdrop-blur-sm">
-                  <TrendingUp className="w-7 h-7 text-white" />
+                <div className="rounded-2xl bg-white/20 p-3">
+                  <ArrowDown className="w-7 h-7 text-white" />
                 </div>
-                <div className="text-left">
+                <div>
                   <p className="text-lg font-bold">Stock In</p>
                   <p className="text-sm text-green-50/85">Tambah Barang Masuk</p>
                 </div>
               </div>
-              <ChevronRight className="w-5 h-5 text-white transition group-hover:translate-x-0.5" />
+              <Plus className="w-5 h-5 text-white" />
             </div>
           </button>
+
           <button
-            onClick={() => handleOpenModal("keluar")}
-            className="group relative overflow-hidden rounded-2xl bg-[linear-gradient(135deg,#b71c1c_0%,#c62828_52%,#ef5350_100%)] p-6 text-left text-white shadow-[0_16px_30px_rgba(198,40,40,0.18)] transition hover:-translate-y-1 hover:shadow-[0_20px_36px_rgba(198,40,40,0.24)]"
+            onClick={() => handleOpenModal("out")}
+            className="group relative overflow-hidden rounded-2xl bg-[linear-gradient(135deg,#b71c1c_0%,#c62828_52%,#ef5350_100%)] p-6 text-left text-white shadow-lg transition hover:-translate-y-1"
           >
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.14),transparent_40%)]" />
-            <div className="absolute inset-x-0 bottom-0 h-16 bg-[linear-gradient(180deg,transparent,rgba(0,0,0,0.10))]" />
             <div className="relative flex items-center justify-between gap-4">
               <div className="flex items-center gap-4">
-                <div className="rounded-2xl bg-white/12 p-3 shadow-sm ring-1 ring-white/15 backdrop-blur-sm">
-                  <TrendingDown className="w-7 h-7 text-white" />
+                <div className="rounded-2xl bg-white/20 p-3">
+                  <ArrowUp className="w-7 h-7 text-white" />
                 </div>
-                <div className="text-left">
+                <div>
                   <p className="text-lg font-bold">Stock Out</p>
                   <p className="text-sm text-red-50/85">Tambah Barang Keluar</p>
                 </div>
               </div>
-              <ChevronRight className="w-5 h-5 text-white transition group-hover:translate-x-0.5" />
+              <Plus className="w-5 h-5 text-white" />
             </div>
           </button>
         </div>
 
+        {/* Tabel */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
             <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
-              {["semua", "masuk", "keluar"].map((tab) => (
+              {["semua", "in", "out"].map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`px-6 py-2 rounded-lg transition font-medium ${
-                    activeTab === tab
-                      ? "bg-white text-[#0C447C] shadow"
-                      : "text-gray-600 hover:text-[#0C447C]"
+                  className={`px-6 py-2 rounded-lg transition font-medium text-sm ${
+                    activeTab === tab ? "bg-white text-[#0C447C] shadow" : "text-gray-600 hover:text-[#0C447C]"
                   }`}
                 >
-                  {tab === "semua" ? "Semua" : tab === "masuk" ? "Masuk" : "Keluar"}
+                  {tab === "semua" ? "Semua" : tab === "in" ? "Masuk" : "Keluar"}
                 </button>
               ))}
             </div>
-            <div className="relative flex-1 md:w-80">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <div className="relative md:w-80">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Cari transaksi..."
+                placeholder="Cari nama barang atau kode..."
                 className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]"
               />
             </div>
           </div>
 
-          <div className="overflow-x-auto mt-6">
+          <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b-2 border-gray-200">
-                  <th className="px-6 py-4 text-left text-[#0C447C] font-semibold">Kode</th>
-                  <th className="px-6 py-4 text-left text-[#0C447C] font-semibold">Barang</th>
-                  <th className="px-6 py-4 text-left text-[#0C447C] font-semibold">Jenis</th>
-                  <th className="px-6 py-4 text-left text-[#0C447C] font-semibold">Jumlah</th>
-                  <th className="px-6 py-4 text-left text-[#0C447C] font-semibold">Tanggal</th>
-                  <th className="px-6 py-4 text-left text-[#0C447C] font-semibold">User</th>
-                  <th className="px-6 py-4 text-left text-[#0C447C] font-semibold">Keterangan</th>
+                  <th className="px-4 py-3 text-left text-[#0C447C] font-semibold">Kode</th>
+                  <th className="px-4 py-3 text-left text-[#0C447C] font-semibold">Barang</th>
+                  <th className="px-4 py-3 text-left text-[#0C447C] font-semibold">Jenis</th>
+                  <th className="px-4 py-3 text-left text-[#0C447C] font-semibold">Jumlah</th>
+                  <th className="px-4 py-3 text-left text-[#0C447C] font-semibold">Harga</th>
+                  <th className="px-4 py-3 text-left text-[#0C447C] font-semibold">Keterangan</th>
+                  <th className="px-4 py-3 text-left text-[#0C447C] font-semibold">Tanggal</th>
+                  <th className="px-4 py-3 text-left text-[#0C447C] font-semibold">User</th>
+                  <th className="px-4 py-3 text-left text-[#0C447C] font-semibold">Aksi</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredTransactions.map((transaction) => (
-                  <tr key={transaction.id} className="border-b border-gray-100 hover:bg-gray-50 transition">
-                    <td className="px-6 py-4 text-gray-600 font-mono text-sm">{transaction.kode}</td>
-                    <td className="px-6 py-4 text-[#0C447C] font-medium">{transaction.barang}</td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold ${
-                        transaction.type === "masuk"
-                          ? "bg-green-100 text-green-700"
-                          : "bg-red-100 text-red-700"
-                      }`}>
-                        {transaction.type === "masuk" ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-                        {transaction.type === "masuk" ? "Masuk" : "Keluar"}
-                      </span>
+                {filteredTransactions.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="text-center py-8 text-gray-400">
+                      Belum ada data transaksi
                     </td>
-                    <td className="px-6 py-4">
-                      <span className={`font-semibold ${transaction.type === "masuk" ? "text-green-600" : "text-red-600"}`}>
-                        {transaction.type === "masuk" ? "+" : "-"}{transaction.qty} Unit
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-gray-600">{transaction.tanggal}</td>
-                    <td className="px-6 py-4 text-gray-600">{transaction.user}</td>
-                    <td className="px-6 py-4 text-gray-600">{transaction.keterangan}</td>
                   </tr>
-                ))}
+                ) : (
+                  filteredTransactions.map((transaction) => (
+                    <tr key={transaction.id} className="border-b border-gray-100 hover:bg-gray-50 transition">
+                      <td className="px-4 py-3 text-gray-600 font-mono text-sm">{transaction.code}</td>
+                      <td className="px-4 py-3 text-[#0C447C] font-medium">{transaction.item?.name || "-"}</td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold ${
+                          transaction.type === "in" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                        }`}>
+                          {transaction.type === "in" ? <ArrowDown className="w-3.5 h-3.5" /> : <ArrowUp className="w-3.5 h-3.5" />}
+                          {transaction.type === "in" ? "Masuk" : "Keluar"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`font-semibold ${transaction.type === "in" ? "text-green-600" : "text-red-600"}`}>
+                          {transaction.type === "in" ? "+" : "-"}{transaction.quantity}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">
+                        {transaction.price ? `Rp ${Number(transaction.price).toLocaleString("id-ID")}` : "-"}
+                      </td>
+                      <td className="px-4 py-3 text-gray-600 max-w-[150px] truncate">
+                        {transaction.note || "-"}
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">
+                        {new Date(transaction.transaction_date).toLocaleDateString("id-ID")}
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">{transaction.user?.name || "-"}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex gap-2">
+                          <button onClick={() => openEdit(transaction)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition">
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => confirmHapus(transaction.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
         </div>
 
+        {/* Modal Tambah/Edit */}
         {showModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-8">
-              <div className="flex items-center gap-3 mb-6">
-                <div className={`p-3 rounded-xl ${
-                  modalType === "masuk"
-                    ? "bg-gradient-to-br from-green-500 to-green-600"
-                    : "bg-gradient-to-br from-red-500 to-red-600"
-                }`}>
-                  {modalType === "masuk" ? <TrendingUp className="w-6 h-6 text-white" /> : <TrendingDown className="w-6 h-6 text-white" />}
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold text-[#0C447C]">
-                    {modalType === "masuk" ? "Tambah Barang Masuk" : "Tambah Barang Keluar"}
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <div className="flex items-center gap-3 mb-5">
+                  <div className={`p-2.5 rounded-xl ${modalType === "in" ? "bg-gradient-to-br from-green-500 to-green-600" : "bg-gradient-to-br from-red-500 to-red-600"}`}>
+                    {modalType === "in" ? <ArrowDown className="w-5 h-5 text-white" /> : <ArrowUp className="w-5 h-5 text-white" />}
+                  </div>
+                  <h2 className="text-xl font-bold text-[#0C447C]">
+                    {editData ? "Edit Transaksi" : modalType === "in" ? "Tambah Barang Masuk" : "Tambah Barang Keluar"}
                   </h2>
-                  <p className="text-sm text-gray-500">Isi form di bawah untuk menambah transaksi</p>
                 </div>
-              </div>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="block mb-2 text-[#0C447C] font-medium">Pilih Barang</label>
-                  <select className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]">
-                    <option value="">Pilih barang...</option>
-                    <option>Resistor 10K Ohm</option>
-                    <option>Kapasitor 100uF</option>
-                    <option>LED Merah 5mm</option>
-                    <option>IC 555 Timer</option>
-                    <option>Transistor NPN</option>
-                  </select>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-3">
                   <div>
-                    <label className="block mb-2 text-[#0C447C] font-medium">Jumlah</label>
-                    <input type="number" className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]" placeholder="0" />
-                  </div>
-                  <div>
-                    <label className="block mb-2 text-[#0C447C] font-medium">Tanggal</label>
-                    <input type="date" className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]" />
-                  </div>
-                </div>
-                {modalType === "masuk" && (
-                  <div>
-                    <label className="block mb-2 text-[#0C447C] font-medium">Supplier</label>
-                    <select className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]">
-                      <option value="">Pilih supplier...</option>
-                      <option>PT Elektronika Jaya</option>
-                      <option>CV Komponen Nusantara</option>
-                      <option>UD Maju Sejahtera</option>
+                    <label className="block mb-1 text-[#0C447C] font-medium text-sm">Pilih Barang</label>
+                    <select
+                      value={form.item_id}
+                      onChange={(e) => setForm({ ...form, item_id: e.target.value })}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD] bg-white text-sm"
+                    >
+                      <option value="">-- Pilih Barang --</option>
+                      {items.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          [{item.code}] {item.name} — Stok: {item.stock}
+                        </option>
+                      ))}
                     </select>
                   </div>
-                )}
-                <div>
-                  <label className="block mb-2 text-[#0C447C] font-medium">Keterangan</label>
-                  <textarea rows={3} className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]" placeholder="Keterangan tambahan..."></textarea>
+                  <div>
+                    <label className="block mb-1 text-[#0C447C] font-medium text-sm">Jumlah</label>
+                    <input
+                      type="number"
+                      value={form.quantity}
+                      onChange={(e) => setForm({ ...form, quantity: e.target.value })}
+                      placeholder="0"
+                      min="1"
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD] text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block mb-1 text-[#0C447C] font-medium text-sm">Tanggal</label>
+                    <input
+                      type="date"
+                      value={form.transaction_date}
+                      onChange={(e) => setForm({ ...form, transaction_date: e.target.value })}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD] text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block mb-1 text-[#0C447C] font-medium text-sm">Harga (Opsional)</label>
+                    <input
+                      type="number"
+                      value={form.price}
+                      onChange={(e) => setForm({ ...form, price: e.target.value })}
+                      placeholder="Harga per unit"
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD] text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block mb-1 text-[#0C447C] font-medium text-sm">Keterangan (Opsional)</label>
+                    <textarea
+                      value={form.note}
+                      onChange={(e) => setForm({ ...form, note: e.target.value })}
+                      placeholder="Keterangan..."
+                      rows={2}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD] text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-3 mt-5">
+                  <button onClick={() => setShowModal(false)} className="flex-1 px-4 py-2.5 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition font-medium text-sm">
+                    Batal
+                  </button>
+                  <button
+                    onClick={handleSimpan}
+                    disabled={loading}
+                    className={`flex-1 px-4 py-2.5 text-white rounded-xl hover:shadow-lg transition font-medium text-sm disabled:opacity-50 ${
+                      modalType === "in" ? "bg-gradient-to-r from-green-500 to-green-600" : "bg-gradient-to-r from-red-500 to-red-600"
+                    }`}
+                  >
+                    {loading ? "Menyimpan..." : "Simpan"}
+                  </button>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
 
-              <div className="flex gap-4 mt-8">
-                <button onClick={() => setShowModal(false)} className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition font-medium">
+        {/* Modal Konfirmasi Hapus */}
+        {showDeleteModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2.5 rounded-xl bg-red-100">
+                  <Trash2 className="w-5 h-5 text-red-600" />
+                </div>
+                <h2 className="text-xl font-bold text-[#0C447C]">Hapus Transaksi</h2>
+              </div>
+              <p className="text-gray-600 mb-6">Apakah kamu yakin ingin menghapus transaksi ini? Stok barang akan dikembalikan secara otomatis.</p>
+              <div className="flex gap-3">
+                <button onClick={() => { setShowDeleteModal(false); setDeleteId(null); }} className="flex-1 px-4 py-2.5 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition font-medium text-sm">
                   Batal
                 </button>
-                <button
-                  onClick={() => setShowModal(false)}
-                  className={`flex-1 px-6 py-3 text-white rounded-xl hover:shadow-xl transition font-medium ${
-                    modalType === "masuk"
-                      ? "bg-gradient-to-r from-green-500 to-green-600"
-                      : "bg-gradient-to-r from-red-500 to-red-600"
-                  }`}
-                >
-                  Simpan Transaksi
+                <button onClick={handleHapus} className="flex-1 px-4 py-2.5 bg-red-500 text-white rounded-xl hover:bg-red-600 transition font-medium text-sm">
+                  Hapus
                 </button>
               </div>
             </div>
           </div>
         )}
+
       </div>
     </MainLayout>
   );
