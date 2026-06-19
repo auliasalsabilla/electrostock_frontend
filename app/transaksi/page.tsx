@@ -6,6 +6,8 @@ import MainLayout from "@/components/MainLayout";
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
+const SATUAN_OPTIONS = ["pcs", "kg", "batang", "meter", "box", "roll"];
+
 function getToken() {
   if (typeof window === "undefined") return "";
   return localStorage.getItem("access_token") || "";
@@ -13,28 +15,30 @@ function getToken() {
 
 export default function Transaksi() {
   const [transactions, setTransactions] = useState<any[]>([]);
-  const [items, setItems] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<string>("semua");
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const [showModal, setShowModal] = useState<boolean>(false);
+  const [items, setItems]               = useState<any[]>([]);
+  const [activeTab, setActiveTab]       = useState<string>("semua");
+  const [searchTerm, setSearchTerm]     = useState<string>("");
+  const [showModal, setShowModal]       = useState<boolean>(false);
   const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false);
-  const [deleteId, setDeleteId] = useState<number | null>(null);
-  const [editData, setEditData] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-  const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
-  const [modalType, setModalType] = useState<"in" | "out">("in");
+  const [deleteId, setDeleteId]         = useState<number | null>(null);
+  const [editData, setEditData]         = useState<any>(null);
+  const [loading, setLoading]           = useState(false);
+  const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [toast, setToast]               = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [modalType, setModalType]       = useState<"in" | "out">("in");
   const [form, setForm] = useState({
-    type: "in",
-    item_id: "",
-    quantity: "",
-    price: "",
-    note: "",
+    type:             "in",
+    item_id:          "",
+    quantity:         "",
+    unit:             "pcs",
+    price:            "",
+    note:             "",
     transaction_date: new Date().toISOString().split("T")[0],
   });
 
   function getHeaders() {
     return {
-      Accept: "application/json",
+      Accept:        "application/json",
       "Content-Type": "application/json",
       Authorization: `Bearer ${getToken()}`,
     };
@@ -52,7 +56,7 @@ export default function Transaksi() {
 
   async function fetchTransactions() {
     try {
-      const res = await fetch(`${API}/transactions`, { headers: getHeaders() });
+      const res  = await fetch(`${API}/transactions`, { headers: getHeaders() });
       const data = await res.json();
       if (data.status) setTransactions(data.data);
     } catch {
@@ -62,35 +66,46 @@ export default function Transaksi() {
 
   async function fetchItems() {
     try {
-      const res = await fetch(`${API}/items`, { headers: getHeaders() });
+      const res  = await fetch(`${API}/items`, { headers: getHeaders() });
       const data = await res.json();
       if (data.status) setItems(data.data);
     } catch {}
   }
 
-  function openEdit(item: any) {
-    setEditData(item);
-    setModalType(item.type);
+  function handleItemChange(itemId: string) {
+    const item = items.find((i) => i.id.toString() === itemId);
+    setSelectedItem(item || null);
+    setForm({ ...form, item_id: itemId, unit: item?.unit?.abbreviation || "pcs" });
+  }
+
+  function openEdit(transaction: any) {
+    setEditData(transaction);
+    setModalType(transaction.type);
+    const item = items.find((i) => i.id === transaction.item_id);
+    setSelectedItem(item || null);
     setForm({
-      type: item.type,
-      item_id: item.item_id,
-      quantity: item.quantity.toString(),
-      price: item.price?.toString() || "",
-      note: item.note || "",
-      transaction_date: item.transaction_date,
+      type:             transaction.type,
+      item_id:          transaction.item_id,
+      quantity:         transaction.quantity.toString(),
+      unit:             transaction.unit || "pcs",
+      price:            transaction.price?.toString() || "",
+      note:             transaction.note || "",
+      transaction_date: transaction.transaction_date,
     });
     setShowModal(true);
   }
 
   function handleOpenModal(type: "in" | "out") {
     setEditData(null);
+    setSelectedItem(null);
     setModalType(type);
     setForm({
       type,
-      item_id: "",
-      quantity: "",
-      price: "",
-      note: "",
+      item_id:          "",
+      quantity:         "",
+      unit:             "pcs",
+      price:            "",
+      note:             "",
       transaction_date: new Date().toISOString().split("T")[0],
     });
     setShowModal(true);
@@ -104,8 +119,8 @@ export default function Transaksi() {
   async function handleHapus() {
     if (!deleteId) return;
     try {
-      const res = await fetch(`${API}/transactions/${deleteId}`, {
-        method: "DELETE",
+      const res  = await fetch(`${API}/transactions/${deleteId}`, {
+        method:  "DELETE",
         headers: getHeaders(),
       });
       const data = await res.json();
@@ -129,17 +144,15 @@ export default function Transaksi() {
       return;
     }
 
-    const url = editData
-      ? `${API}/transactions/${editData.id}`
-      : `${API}/transactions`;
+    const url    = editData ? `${API}/transactions/${editData.id}` : `${API}/transactions`;
     const method = editData ? "PUT" : "POST";
 
     setLoading(true);
     try {
-      const res = await fetch(url, {
+      const res  = await fetch(url, {
         method,
         headers: getHeaders(),
-        body: JSON.stringify(form),
+        body:    JSON.stringify(form),
       });
       const data = await res.json();
       if (data.status) {
@@ -162,7 +175,7 @@ export default function Transaksi() {
       t.code?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchType =
       activeTab === "semua" ||
-      (activeTab === "in" && t.type === "in") ||
+      (activeTab === "in"  && t.type === "in") ||
       (activeTab === "out" && t.type === "out");
     return matchSearch && matchType;
   });
@@ -255,9 +268,11 @@ export default function Transaksi() {
               <thead>
                 <tr className="border-b-2 border-gray-200">
                   <th className="px-4 py-3 text-left text-[#0C447C] font-semibold">Kode</th>
-                  <th className="px-4 py-3 text-left text-[#0C447C] font-semibold">Barang</th>
+                  <th className="px-4 py-3 text-left text-[#0C447C] font-semibold">Kode Barang</th>
+                  <th className="px-4 py-3 text-left text-[#0C447C] font-semibold">Nama Barang</th>
                   <th className="px-4 py-3 text-left text-[#0C447C] font-semibold">Jenis</th>
                   <th className="px-4 py-3 text-left text-[#0C447C] font-semibold">Jumlah</th>
+                  <th className="px-4 py-3 text-left text-[#0C447C] font-semibold">Satuan</th>
                   <th className="px-4 py-3 text-left text-[#0C447C] font-semibold">Harga</th>
                   <th className="px-4 py-3 text-left text-[#0C447C] font-semibold">Keterangan</th>
                   <th className="px-4 py-3 text-left text-[#0C447C] font-semibold">Tanggal</th>
@@ -268,7 +283,7 @@ export default function Transaksi() {
               <tbody>
                 {filteredTransactions.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="text-center py-8 text-gray-400">
+                    <td colSpan={11} className="text-center py-8 text-gray-400">
                       Belum ada data transaksi
                     </td>
                   </tr>
@@ -276,6 +291,7 @@ export default function Transaksi() {
                   filteredTransactions.map((transaction) => (
                     <tr key={transaction.id} className="border-b border-gray-100 hover:bg-gray-50 transition">
                       <td className="px-4 py-3 text-gray-600 font-mono text-sm">{transaction.code}</td>
+                      <td className="px-4 py-3 text-gray-600 font-mono text-sm">{transaction.item?.code || "-"}</td>
                       <td className="px-4 py-3 text-[#0C447C] font-medium">{transaction.item?.name || "-"}</td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold ${
@@ -290,12 +306,11 @@ export default function Transaksi() {
                           {transaction.type === "in" ? "+" : "-"}{transaction.quantity}
                         </span>
                       </td>
+                      <td className="px-4 py-3 text-gray-600">{transaction.unit || "-"}</td>
                       <td className="px-4 py-3 text-gray-600">
                         {transaction.price ? `Rp ${Number(transaction.price).toLocaleString("id-ID")}` : "-"}
                       </td>
-                      <td className="px-4 py-3 text-gray-600 max-w-[150px] truncate">
-                        {transaction.note || "-"}
-                      </td>
+                      <td className="px-4 py-3 text-gray-600 max-w-[150px] truncate">{transaction.note || "-"}</td>
                       <td className="px-4 py-3 text-gray-600">
                         {new Date(transaction.transaction_date).toLocaleDateString("id-ID")}
                       </td>
@@ -333,11 +348,12 @@ export default function Transaksi() {
                 </div>
 
                 <div className="space-y-3">
+                  {/* Pilih Barang */}
                   <div>
                     <label className="block mb-1 text-[#0C447C] font-medium text-sm">Pilih Barang</label>
                     <select
                       value={form.item_id}
-                      onChange={(e) => setForm({ ...form, item_id: e.target.value })}
+                      onChange={(e) => handleItemChange(e.target.value)}
                       className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD] bg-white text-sm"
                     >
                       <option value="">-- Pilih Barang --</option>
@@ -348,17 +364,46 @@ export default function Transaksi() {
                       ))}
                     </select>
                   </div>
-                  <div>
-                    <label className="block mb-1 text-[#0C447C] font-medium text-sm">Jumlah</label>
-                    <input
-                      type="number"
-                      value={form.quantity}
-                      onChange={(e) => setForm({ ...form, quantity: e.target.value })}
-                      placeholder="0"
-                      min="1"
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD] text-sm"
-                    />
+
+                  {/* Info Barang Terpilih */}
+                  {selectedItem && (
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-sm">
+                      <p className="text-[#0C447C] font-semibold">{selectedItem.name}</p>
+                      <p className="text-gray-600">Kode: {selectedItem.code}</p>
+                      <p className="text-gray-600">Harga: {selectedItem.purchase_price ? `Rp ${Number(selectedItem.purchase_price).toLocaleString("id-ID")}` : "-"}</p>
+                      <p className="text-gray-600">Satuan: {selectedItem.unit?.name || "-"}</p>
+                      <p className="text-gray-600">Stok: {selectedItem.stock}</p>
+                    </div>
+                  )}
+
+                  {/* Jumlah & Satuan */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block mb-1 text-[#0C447C] font-medium text-sm">Jumlah</label>
+                      <input
+                        type="number"
+                        value={form.quantity}
+                        onChange={(e) => setForm({ ...form, quantity: e.target.value })}
+                        placeholder="0"
+                        min="1"
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD] text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block mb-1 text-[#0C447C] font-medium text-sm">Satuan</label>
+                      <select
+                        value={form.unit}
+                        onChange={(e) => setForm({ ...form, unit: e.target.value })}
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD] bg-white text-sm"
+                      >
+                        {SATUAN_OPTIONS.map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
+
+                  {/* Tanggal */}
                   <div>
                     <label className="block mb-1 text-[#0C447C] font-medium text-sm">Tanggal</label>
                     <input
@@ -368,6 +413,8 @@ export default function Transaksi() {
                       className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD] text-sm"
                     />
                   </div>
+
+                  {/* Harga */}
                   <div>
                     <label className="block mb-1 text-[#0C447C] font-medium text-sm">Harga (Opsional)</label>
                     <input
@@ -378,6 +425,8 @@ export default function Transaksi() {
                       className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD] text-sm"
                     />
                   </div>
+
+                  {/* Keterangan */}
                   <div>
                     <label className="block mb-1 text-[#0C447C] font-medium text-sm">Keterangan (Opsional)</label>
                     <textarea
