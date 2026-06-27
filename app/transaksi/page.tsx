@@ -147,12 +147,20 @@ export default function Transaksi() {
     const url    = editData ? `${API}/transactions/${editData.id}` : `${API}/transactions`;
     const method = editData ? "PUT" : "POST";
 
+    // Field opsional (price, note) dikosongkan jadi null, bukan string kosong,
+    // supaya tidak error saat disimpan ke kolom decimal/text di database.
+    const payload = {
+      ...form,
+      price: form.price === "" ? null : Number(form.price),
+      note:  form.note === "" ? null : form.note,
+    };
+
     setLoading(true);
     try {
       const res  = await fetch(url, {
         method,
         headers: getHeaders(),
-        body:    JSON.stringify(form),
+        body:    JSON.stringify(payload),
       });
       const data = await res.json();
       if (data.status) {

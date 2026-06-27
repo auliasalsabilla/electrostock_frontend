@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Package, Users, MapPin, Search, Plus, Edit2, Trash2, FolderPlus, ImageIcon } from "lucide-react";
+import { Package, Users, Warehouse, Search, Plus, Edit2, Trash2, FolderPlus, ImageIcon } from "lucide-react";
 import MainLayout from "@/components/MainLayout";
 import { apiClient } from "@/lib/api";
 
@@ -35,6 +35,8 @@ interface Supplier {
   email: string;
   address: string;
   city: string;
+  bank_name: string;
+  bank_account: string;
   is_active: boolean;
 }
 
@@ -66,6 +68,7 @@ export default function DataMaster() {
   const [isEdit, setIsEdit]             = useState(false);
   const [editId, setEditId]             = useState<number | null>(null);
   const [loading, setLoading]           = useState(false);
+  const [pageLoading, setPageLoading]   = useState(true);
   const [formError, setFormError]       = useState("");
 
   const [barangList,   setBarangList]   = useState<Barang[]>([]);
@@ -86,7 +89,7 @@ export default function DataMaster() {
 
   const [supplierForm, setSupplierForm] = useState({
     code: "", name: "", contact_person: "", phone: "",
-    email: "", address: "", city: "", is_active: true,
+    email: "", address: "", city: "", bank_name: "", bank_account: "", is_active: true,
   });
 
   const [lokasiForm, setLokasiForm] = useState({
@@ -102,7 +105,22 @@ export default function DataMaster() {
   const fetchUnit     = async () => { const r = await apiClient.get("/units");              if (r.status) setUnitList(r.data); };
 
   useEffect(() => {
-    fetchBarang(); fetchSupplier(); fetchLokasi(); fetchCategory(); fetchUnit();
+    // Jalankan kelima fetch ini SEKALIGUS (paralel), bukan satu-satu berurutan.
+    // Sebelumnya: fetchBarang(); fetchSupplier(); ... dipanggil terpisah,
+    // tiap fetch tetap menunggu giliran karena terjebak antrean preflight CORS browser.
+    // Promise.all membuat browser mengirim semua request dalam waktu yang sama.
+    const loadAll = async () => {
+      setPageLoading(true);
+      await Promise.all([
+        fetchBarang(),
+        fetchSupplier(),
+        fetchLokasi(),
+        fetchCategory(),
+        fetchUnit(),
+      ]);
+      setPageLoading(false);
+    };
+    loadAll();
   }, []);
 
   const filteredBarang = barangList.filter(
@@ -152,6 +170,7 @@ export default function DataMaster() {
           contact_person: item.contact_person || "",
           phone: item.phone || "", email: item.email || "",
           address: item.address || "", city: item.city || "",
+          bank_name: item.bank_name || "", bank_account: item.bank_account || "",
           is_active: item.is_active,
         });
       } else {
@@ -164,7 +183,7 @@ export default function DataMaster() {
       setIsEdit(false);
       setEditId(null);
       setBarangForm({ code: "", name: "", brand: "", description: "", category_id: "", supplier_id: "", unit_id: "", storage_location_id: "", stock: 0, stock_minimum: 0, purchase_price: 0, is_active: true });
-      setSupplierForm({ code: "", name: "", contact_person: "", phone: "", email: "", address: "", city: "", is_active: true });
+      setSupplierForm({ code: "", name: "", contact_person: "", phone: "", email: "", address: "", city: "", bank_name: "", bank_account: "", is_active: true });
       setLokasiForm({ code: "", name: "", description: "", is_active: true });
     }
     setShowModal(true);
@@ -241,7 +260,7 @@ export default function DataMaster() {
   const tabs = [
     { id: "barang",   label: "Barang",   icon: Package },
     { id: "supplier", label: "Supplier", icon: Users },
-    { id: "lokasi",   label: "Lokasi",   icon: MapPin },
+    { id: "lokasi",   label: "Lokasi",   icon: Warehouse },
   ];
 
   const getTambahLabel = () =>
@@ -296,6 +315,13 @@ export default function DataMaster() {
         {/* Content */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
 
+          {pageLoading ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#378ADD] mx-auto mb-4"></div>
+              <p className="text-gray-500">Memuat data...</p>
+            </div>
+          ) : (
+          <>
           {/* Tab Barang */}
           {activeTab === "barang" && (
             <div className="overflow-x-auto">
@@ -367,13 +393,14 @@ export default function DataMaster() {
                     <th className="px-6 py-4 text-left text-[#0C447C] font-semibold">Kontak</th>
                     <th className="px-6 py-4 text-left text-[#0C447C] font-semibold">Email</th>
                     <th className="px-6 py-4 text-left text-[#0C447C] font-semibold">Kota</th>
+                    <th className="px-6 py-4 text-left text-[#0C447C] font-semibold">Bank</th>
                     <th className="px-6 py-4 text-left text-[#0C447C] font-semibold">Status</th>
                     <th className="px-6 py-4 text-left text-[#0C447C] font-semibold">Aksi</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredSupplier.length === 0 ? (
-                    <tr><td colSpan={7} className="text-center text-gray-500 py-8">Tidak ada supplier.</td></tr>
+                    <tr><td colSpan={8} className="text-center text-gray-500 py-8">Tidak ada supplier.</td></tr>
                   ) : filteredSupplier.map((s) => (
                     <tr key={s.id} className="border-b border-gray-100 hover:bg-gray-50 transition">
                       <td className="px-6 py-4 text-gray-600 font-mono text-sm">{s.code}</td>
@@ -381,6 +408,9 @@ export default function DataMaster() {
                       <td className="px-6 py-4 text-gray-600">{s.phone || "-"}</td>
                       <td className="px-6 py-4 text-gray-600">{s.email || "-"}</td>
                       <td className="px-6 py-4 text-gray-600">{s.city || "-"}</td>
+                      <td className="px-6 py-4 text-gray-600">
+                        {s.bank_name ? `${s.bank_name} - ${s.bank_account || ""}` : "-"}
+                      </td>
                       <td className="px-6 py-4">
                         <span className={`px-3 py-1 rounded-full text-sm font-medium ${s.is_active ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
                           {s.is_active ? "Aktif" : "Nonaktif"}
@@ -412,7 +442,7 @@ export default function DataMaster() {
                 <div key={l.id} className="p-6 border-2 border-gray-200 rounded-xl hover:border-[#378ADD] hover:shadow-lg transition">
                   <div className="flex items-start justify-between mb-4">
                     <div className="p-3 bg-gradient-to-br from-[#378ADD] to-[#0C447C] rounded-xl">
-                      <MapPin className="w-6 h-6 text-white" />
+                      <Warehouse className="w-6 h-6 text-white" />
                     </div>
                     <div className="flex gap-2">
                       <button onClick={() => handleOpenModal(l)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition">
@@ -432,6 +462,8 @@ export default function DataMaster() {
                 </div>
               ))}
             </div>
+          )}
+          </>
           )}
         </div>
 
@@ -497,7 +529,7 @@ export default function DataMaster() {
                         <select value={barangForm.unit_id} onChange={(e) => setBarangForm({ ...barangForm, unit_id: e.target.value })}
                           className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]">
                           <option value="">Pilih Satuan</option>
-                          {unitList.map((u) => <option key={u.id} value={u.id}>{u.name} ({u.abbreviation})</option>)}
+                          {unitList.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
                         </select>
                       </div>
                     </div>
@@ -609,6 +641,20 @@ export default function DataMaster() {
                       <textarea rows={3} value={supplierForm.address} onChange={(e) => setSupplierForm({ ...supplierForm, address: e.target.value })}
                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]"
                         placeholder="Alamat lengkap supplier" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block mb-2 text-[#0C447C] font-medium">Nama Bank</label>
+                        <input type="text" value={supplierForm.bank_name} onChange={(e) => setSupplierForm({ ...supplierForm, bank_name: e.target.value })}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]"
+                          placeholder="Contoh: BCA" />
+                      </div>
+                      <div>
+                        <label className="block mb-2 text-[#0C447C] font-medium">No. Rekening</label>
+                        <input type="text" value={supplierForm.bank_account} onChange={(e) => setSupplierForm({ ...supplierForm, bank_account: e.target.value })}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]"
+                          placeholder="Nomor rekening" />
+                      </div>
                     </div>
                     <div>
                       <label className="block mb-2 text-[#0C447C] font-medium">Status</label>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Database, Shield, User, Download, Upload } from "lucide-react";
+import { Shield, User } from "lucide-react";
 import MainLayout from "@/components/MainLayout";
 import { useAuthContext } from "@/context/AuthContext";
 import { apiClient } from "@/lib/api";
@@ -85,14 +85,6 @@ export default function Settings() {
     } finally {
       setPasswordLoading(false);
     }
-  };
-
-  const handleBackup = () => {
-    alert("Backup data dimulai... File akan diunduh segera.");
-  };
-
-  const handleRestore = () => {
-    alert("Pilih file backup untuk restore data.");
   };
 
   return (
@@ -198,60 +190,6 @@ export default function Settings() {
             </button>
           </form>
         </div>
-
-        {/* Backup & Restore - Admin Only */}
-        {user?.role === "admin" && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <Database className="w-6 h-6 text-[#378ADD]" />
-              <h3 className="text-xl font-bold text-[#0C447C]">Backup Data</h3>
-            </div>
-            <div className="space-y-4">
-              <p className="text-gray-600">
-                Backup data inventaris Anda secara berkala untuk mencegah kehilangan data.
-              </p>
-              <div className="flex gap-4">
-                <button
-                  onClick={handleBackup}
-                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#378ADD] to-[#0C447C] text-white rounded-xl hover:shadow-lg transition font-medium"
-                >
-                  <Download className="w-5 h-5" />
-                  Backup Data Sekarang
-                </button>
-                <button
-                  onClick={handleRestore}
-                  className="flex items-center gap-2 px-6 py-3 border-2 border-[#378ADD] text-[#378ADD] rounded-xl hover:bg-[#378ADD] hover:text-white transition font-medium"
-                >
-                  <Upload className="w-5 h-5" />
-                  Restore Data
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* System Settings - Admin Only */}
-        {user?.role === "admin" && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-xl font-bold text-[#0C447C] mb-6">Pengaturan Sistem</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block mb-2 text-[#0C447C] font-medium">Minimum Stok Alert</label>
-                <input
-                  type="number"
-                  defaultValue="50"
-                  className="w-full md:w-64 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]"
-                />
-                <p className="text-sm text-gray-600 mt-1">
-                  Sistem akan memberi peringatan jika stok di bawah nilai ini
-                </p>
-              </div>
-              <button className="px-6 py-2.5 bg-gradient-to-r from-[#378ADD] to-[#0C447C] text-white rounded-xl hover:shadow-lg transition font-medium">
-                Simpan Pengaturan
-              </button>
-            </div>
-          </div>
-        )}
 
       </div>
     </MainLayout>
