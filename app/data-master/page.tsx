@@ -105,10 +105,6 @@ export default function DataMaster() {
   const fetchUnit     = async () => { const r = await apiClient.get("/units");              if (r.status) setUnitList(r.data); };
 
   useEffect(() => {
-    // Jalankan kelima fetch ini SEKALIGUS (paralel), bukan satu-satu berurutan.
-    // Sebelumnya: fetchBarang(); fetchSupplier(); ... dipanggil terpisah,
-    // tiap fetch tetap menunggu giliran karena terjebak antrean preflight CORS browser.
-    // Promise.all membuat browser mengirim semua request dalam waktu yang sama.
     const loadAll = async () => {
       setPageLoading(true);
       await Promise.all([
@@ -124,16 +120,28 @@ export default function DataMaster() {
   }, []);
 
   const filteredBarang = barangList.filter(
-    (i) => i.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           i.code.toLowerCase().includes(searchTerm.toLowerCase())
+    (i) =>
+      i.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      i.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (i.category?.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (i.supplier?.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (i.brand || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (i.storage_location?.name || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
   const filteredSupplier = supplierList.filter(
-    (s) => s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           s.code.toLowerCase().includes(searchTerm.toLowerCase())
+    (s) =>
+      s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      s.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (s.contact_person || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (s.email || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (s.city || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (s.phone || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
   const filteredLokasi = lokasiList.filter(
-    (l) => l.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           l.code.toLowerCase().includes(searchTerm.toLowerCase())
+    (l) =>
+      l.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      l.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (l.description || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -160,7 +168,7 @@ export default function DataMaster() {
           unit_id: item.unit_id || "",
           storage_location_id: item.storage_location_id || "",
           stock: item.stock, stock_minimum: item.stock_minimum,
-          purchase_price: item.purchase_price,
+          purchase_price: Number(item.purchase_price),
           is_active: item.is_active,
         });
         if (item.image_url) setImagePreview(item.image_url);
@@ -314,7 +322,6 @@ export default function DataMaster() {
 
         {/* Content */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-
           {pageLoading ? (
             <div className="text-center py-12">
               <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#378ADD] mx-auto mb-4"></div>
@@ -555,8 +562,19 @@ export default function DataMaster() {
                     </div>
                     <div>
                       <label className="block mb-2 text-[#0C447C] font-medium">Harga Beli</label>
-                      <input type="number" value={barangForm.purchase_price} onChange={(e) => setBarangForm({ ...barangForm, purchase_price: Number(e.target.value) })}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]" min={0} />
+                      <div className="relative">
+                        <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500">Rp</span>
+                        <input
+                          type="text"
+                          value={barangForm.purchase_price ? barangForm.purchase_price.toLocaleString("id-ID") : ""}
+                          onChange={(e) => {
+                            const raw = e.target.value.replace(/\D/g, "");
+                            setBarangForm({ ...barangForm, purchase_price: raw ? Number(raw) : 0 });
+                          }}
+                          className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD]"
+                          placeholder="0"
+                        />
+                      </div>
                     </div>
 
                     {/* Upload Gambar */}

@@ -22,7 +22,7 @@ export default function Login() {
     setIsSubmitting(true);
 
     try {
-      await login(email, password);
+      await login(email, password, role);
       // redirect sudah ditangani AuthContext
     } catch (err: any) {
       const msg =

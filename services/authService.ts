@@ -11,6 +11,7 @@ export interface User {
 export interface LoginRequest {
   email: string;
   password: string;
+  role: string;
 }
 
 export interface LoginResponse {
@@ -25,7 +26,18 @@ export interface LoginResponse {
 
 export const authService = {
   async login(credentials: LoginRequest): Promise<LoginResponse> {
-    return apiClient.post('/login', credentials);
+    const response = await apiClient.post('/login', credentials);
+
+    if (!response.status || !response.data) {
+      const message =
+        response.errors?.role?.[0] ||
+        response.errors?.email?.[0] ||
+        response.message ||
+        'Login gagal. Periksa email dan password.';
+      throw new Error(message);
+    }
+
+    return response;
   },
 
   async logout(): Promise<void> {
