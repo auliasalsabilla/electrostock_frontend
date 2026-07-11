@@ -117,7 +117,9 @@ export default function Transaksi() {
   }
 
   async function handleHapus() {
-    if (!deleteId) return;
+    if (!deleteId || loading) return;
+
+    setLoading(true);
     try {
       const res  = await fetch(`${API}/transactions/${deleteId}`, {
         method:  "DELETE",
@@ -126,6 +128,7 @@ export default function Transaksi() {
       const data = await res.json();
       if (data.status) {
         await fetchTransactions();
+        await fetchItems(); // refresh stok item setelah hapus transaksi
         showToast("success", "Transaksi berhasil dihapus!");
       } else {
         showToast("error", data.message || "Gagal menghapus transaksi");
@@ -133,6 +136,7 @@ export default function Transaksi() {
     } catch {
       showToast("error", "Terjadi kesalahan");
     } finally {
+      setLoading(false);
       setShowDeleteModal(false);
       setDeleteId(null);
     }
@@ -143,6 +147,9 @@ export default function Transaksi() {
       showToast("error", "Harap isi semua field yang diperlukan");
       return;
     }
+
+    // Cegah submit dobel selagi request sebelumnya masih berjalan
+    if (loading) return;
 
     const url    = editData ? `${API}/transactions/${editData.id}` : `${API}/transactions`;
     const method = editData ? "PUT" : "POST";
@@ -166,7 +173,15 @@ export default function Transaksi() {
       if (data.status) {
         setShowModal(false);
         await fetchTransactions();
-        showToast("success", editData ? "Transaksi berhasil diupdate!" : "Transaksi berhasil ditambahkan!");
+        await fetchItems(); // refresh stok item supaya sinkron dengan DB setelah transaksi baru
+        showToast(
+          "success",
+          editData
+            ? "Transaksi berhasil diupdate!"
+            : form.type === "in"
+              ? "Barang masuk berhasil ditambahkan!"
+              : "Barang keluar berhasil ditambahkan!"
+        );
       } else {
         showToast("error", data.message || "Gagal menyimpan transaksi");
       }
@@ -392,6 +407,7 @@ export default function Transaksi() {
                         type="number"
                         value={form.quantity}
                         onChange={(e) => setForm({ ...form, quantity: e.target.value })}
+                        onWheel={(e) => e.currentTarget.blur()}
                         placeholder="0"
                         min="1"
                         className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD] text-sm"
@@ -429,6 +445,7 @@ export default function Transaksi() {
                       type="number"
                       value={form.price}
                       onChange={(e) => setForm({ ...form, price: e.target.value })}
+                      onWheel={(e) => e.currentTarget.blur()}
                       placeholder="Harga per unit"
                       className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#378ADD] text-sm"
                     />
@@ -481,8 +498,12 @@ export default function Transaksi() {
                 <button onClick={() => { setShowDeleteModal(false); setDeleteId(null); }} className="flex-1 px-4 py-2.5 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition font-medium text-sm">
                   Batal
                 </button>
-                <button onClick={handleHapus} className="flex-1 px-4 py-2.5 bg-red-500 text-white rounded-xl hover:bg-red-600 transition font-medium text-sm">
-                  Hapus
+                <button
+                  onClick={handleHapus}
+                  disabled={loading}
+                  className="flex-1 px-4 py-2.5 bg-red-500 text-white rounded-xl hover:bg-red-600 transition font-medium text-sm disabled:opacity-50"
+                >
+                  {loading ? "Menghapus..." : "Hapus"}
                 </button>
               </div>
             </div>
